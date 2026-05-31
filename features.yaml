@@ -1,0 +1,5 @@
+features:
+  ambient_memory: true
+  auto_commit: false
+  watch_paths:
+  - /tmp/test

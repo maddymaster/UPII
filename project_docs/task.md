@@ -1,0 +1,57 @@
+- [x] v0.5: Core Implementation (Completed)
+    - [x] Ingestion, Search, RAG, Tasks, Observability
+    - [x] Packaging & Release
+
+- [x] v1.0: Sovereign Memory Engine (Upgrade)
+    - [x] Architecture & Design
+        - [x] Create v1 Blueprint (`design_blueprint_v1.md`)
+        - [x] Define Staging Area Schema (`data_model_v1.md`)
+    - [x] Core Infrastructure
+        - [x] Implement Feature Flag System (`src/upii/core/features.py`)
+        - [x] Implement Failure Isolation (Process/Thread separation)
+    - [x] Passive Ingestion Framework
+        - [x] Source Registry & Audit Log
+        - [x] Robust File Watcher (Deletes/Renames/Debounce)
+        - [x] CLI `upii sources`
+    - [x] Temporal Memory Reinforcement
+        - [x] Define Calendar Schema (`data_model_v1.md`)
+        - [x] Implement `CalendarConnector` for .ics Parsing (`src/upii/ambient/calendar_connector.py`)
+        - [x] Integrate Calendar with Retrieval (`src/upii/analysis/search.py`)
+        - [x] Verify Recall ("Who did I talk to last week?")
+    - [x] Knowledge Graph Engineering (Lightweight Entity Extraction)
+        - [x] Define Entity Schema (`data_model_v1.md`)
+        - [x] Implement `EntityExtractor` (Rule-based)
+        - [x] Implement `entity_edges` storage
+        - [x] Integrate Entity Retrieval into Search
+        - [x] Reversibility Tools (CLI to wipe entities)
+    - [x] core v1 Experience (Context Rehydration)
+        - [x] Design `ContextRehydrator` and `RankedChunk` (`implementation_plan.md`)
+        - [x] Implement `src/upii/analysis/rehydration.py` (Ranking Logic)
+        - [x] Refactor `SearchEngine` to use Rehydrator
+        - [x] Debug Mode Integration (`upii ask --debug`)
+    - [x] Global Access Layer (Overlay UI)
+        - [x] Design Architecture (Daemon + `pywebview`)
+        - [x] Implement `src/upii/overlay/app.py` (Frontend)
+        - [x] Implement `src/upii/overlay/daemon.py` (Hotkey Listener)
+        - [x] Verify Launch Performance (<300ms)
+    - [x] Inspection & Trust
+        - [x] Build `upii inbox` CLI (Review Staging)
+        - [x] Implement "Commit" Logic
+        - [x] Update Inbox to show Audit Logs
+    - [x] Memory Safety Test Suite (QA)
+        - [x] Create `qa_plan_v1.md`
+        - [x] Implement `tests/test_memory_integrity.py` (Duplication/Corruption)
+        - [x] Implement `tests/perf/test_long_running.py` (Stability)
+        - [x] Run Full Regression Suite
+    - [x] Local Evaluation Signals (Metrics)
+        - [x] Implement `src/upii/analysis/metrics.py` (Counters & DB)
+        - [x] Add `upii metrics` CLI (Show & Export)
+        - [x] Instrument `SearchEngine` and `IngestionPipeline`
+    - [x] Verification
+        - [x] Test Passive Ingestion reliability
+        - [x] Verify Feature Flags
+- [x] Founder / Investor Demos
+    - [x] Create `demo_v1_assets.md` (Scripts & Comparison)
+    - [x] Implement `upii demo` CLI Group
+        - [x] `upii demo investor` (Architecture/Graph/Logs visualization)
+        - [x] `upii demo comparison` (Side-by-side v0.5 vs v1 metrics)
