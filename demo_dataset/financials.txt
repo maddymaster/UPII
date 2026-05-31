@@ -1,0 +1,8 @@
+# Q3 Financial Overview
+
+Revenue was up 15% due to increased adoption of the Pro plan.
+Operating costs remained flat.
+
+## Budget 2026
+We are allocating $50k for server upgrades and $20k for team offsites.
+The main risk factor is GPU availability.

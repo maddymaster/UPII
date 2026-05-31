@@ -1,0 +1,29 @@
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Build artifacts
+build/
+dist/
+release/
+*.spec
+*.egg-info/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Databases & vector stores
+*.db
+upii_vectors/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# Local config (may contain API keys)
+.upii_config.yaml

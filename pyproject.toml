@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "upii"
+version = "0.5.0"
+authors = [
+  { name="UPII Team", email="team@upii.ai" },
+]
+description = "Local-first personal memory substrate"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "typer",
+    "rich",
+    "lancedb",
+    "sentence-transformers",
+    "ollama",
+    "pypdf"
+]
+
+[project.scripts]
+upii = "upii.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]

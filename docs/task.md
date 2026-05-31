@@ -1,0 +1,38 @@
+- [x] v0.5: Core Implementation (Completed)
+    - [x] Ingestion, Search, RAG, Tasks, Observability
+    - [x] Packaging & Release
+
+- [/] v1.0: Sovereign Memory Engine (Upgrade)
+    - [x] Architecture & Design
+        - [x] Create v1 Blueprint (`design_blueprint_v1.md`)
+        - [x] Define Staging Area Schema (`data_model_v1.md`)
+    - [x] Core Infrastructure
+        - [x] Implement Feature Flag System (`src/upii/core/features.py`)
+        - [x] Implement Failure Isolation (Process/Thread separation)
+    - [x] Passive Ingestion Framework
+        - [x] Source Registry & Audit Log
+        - [x] Robust File Watcher (Deletes/Renames/Debounce)
+        - [x] CLI `upii sources`
+    - [x] Temporal Memory Reinforcement
+        - [x] Define Calendar Schema (`data_model_v1.md`)
+        - [x] Implement `CalendarConnector` for .ics Parsing (`src/upii/ambient/calendar_connector.py`)
+        - [x] Integrate Calendar with Retrieval (`src/upii/analysis/search.py`)
+        - [x] Verify Recall ("Who did I talk to last week?")
+    - [x] Knowledge Graph Engineering (Lightweight Entity Extraction)
+        - [x] Define Entity Schema (`data_model_v1.md`)
+        - [x] Implement `EntityExtractor` (Rule-based)
+        - [x] Implement `entity_edges` storage
+        - [x] Integrate Entity Retrieval into Search
+        - [x] Reversibility Tools (CLI to wipe entities)
+    - [x] core v1 Experience (Context Rehydration)
+        - [x] Design `ContextRehydrator` and `RankedChunk` (`implementation_plan.md`)
+        - [x] Implement `src/upii/analysis/rehydration.py` (Ranking Logic)
+        - [x] Refactor `SearchEngine` to use Rehydrator
+        - [x] Debug Mode Integration (`upii ask --debug`)
+    - [ ] Inspection & Trust
+        - [x] Build `upii inbox` CLI (Review Staging)
+        - [x] Implement "Commit" Logic
+        - [ ] Update Inbox to show Audit Logs
+    - [x] Verification
+        - [x] Test Passive Ingestion reliability
+        - [x] Verify Feature Flags
