@@ -1,3 +1,6 @@
+---
+author: Maddy
+---
 # Meeting Notes: ICEYE Partnership Sync
 **Date:** Oct 20, 2025
 **Participants:** Maddy (Ambee), Sarah (VP Eng, ICEYE), David (Product, ICEYE)

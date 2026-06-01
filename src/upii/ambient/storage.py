@@ -110,14 +110,47 @@ class StagingDB:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM events WHERE status = 'pending'")
+        cursor.execute("SELECT * FROM events WHERE status = 'pending' ORDER BY detected_at DESC")
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
-        
+
+    def get_all_events(self) -> List[Dict]:
+        """Return every event regardless of status (pending/approved/rejected/acknowledged)."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM events ORDER BY detected_at DESC")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    def get_staging_doc_by_event(self, event_id: str) -> Optional[Dict]:
+        """Fetch the staged (reviewed) document content for a given event.
+
+        This is the content the operator approved — promotion must use this,
+        NOT a fresh disk read, so what enters LTM is exactly what was reviewed.
+        """
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM staging_docs WHERE source_event_id = ? LIMIT 1", (event_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
     def update_event_status(self, event_id: str, status: str):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute("UPDATE events SET status = ? WHERE event_id = ?", (status, event_id))
+        conn.commit()
+        conn.close()
+
+    def update_staging_status(self, staging_id: str, status: str):
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE staging_docs SET status = ? WHERE staging_id = ?", (status, staging_id))
         conn.commit()
         conn.close()

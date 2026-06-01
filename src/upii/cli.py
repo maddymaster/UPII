@@ -361,91 +361,188 @@ def watch(path: str = typer.Argument(..., help="Path to watch")):
 from typing import Optional
 from rich.table import Table
 
+def _preview(text: Optional[str], width: int = 120) -> str:
+    """First `width` chars of text, truncated cleanly on a word boundary."""
+    if not text:
+        return ""
+    flat = " ".join(text.split())  # collapse whitespace/newlines
+    if len(flat) <= width:
+        return flat
+    cut = flat[:width]
+    # Back off to the last space so we don't slice a word in half.
+    if " " in cut:
+        cut = cut[:cut.rfind(" ")]
+    return cut + "…"  # ellipsis
+
+
 @app.command()
 def inbox(
     approve: Optional[str] = typer.Option(None, "--approve", "-a", help="Approve event ID to ingest"),
     reject: Optional[str] = typer.Option(None, "--reject", "-r", help="Reject event ID"),
-    list_all: bool = typer.Option(False, "--all", help="List all pending events")
+    list_all: bool = typer.Option(False, "--all", help="List pending + approved + rejected events")
 ):
     """Manage staged ambient events."""
+    import json as _json
+    from datetime import datetime
     from upii.ambient.storage import StagingDB
-    
+
     stg = StagingDB()
     try:
-        stg.init_db() # Ensure DB exists
-    except:
+        stg.init_db()  # Ensure DB exists
+    except Exception:
         pass
-        
+
+    # --- APPROVE -----------------------------------------------------------
     if approve:
-        events = stg.get_pending_events()
-        target = next((e for e in events if e['event_id'].startswith(approve)), None)
+        # Search ALL events (not just pending) so re-approving is an idempotent no-op.
+        target = next((e for e in stg.get_all_events() if e['event_id'].startswith(approve)), None)
         if not target:
             console.print(f"[red]Event {approve} not found.[/red]")
             return
-            
-        console.print(f"Approving: {target['file_path']}")
-        
-        # Ingest Logic
-        from upii.ingestion.loader import LocalLoader
+
+        if target['status'] == 'approved':
+            console.print(f"[yellow]Event {target['event_id'][:8]} already approved (no-op).[/yellow]")
+            return
+        if target['status'] == 'rejected':
+            console.print(f"[yellow]Event {target['event_id'][:8]} was rejected; not promoting.[/yellow]")
+            return
+
+        # Deleted events carry no content to promote.
+        if target['event_type'] == 'deleted':
+            console.print(f"[yellow]Cannot approve a deletion event ({os.path.basename(target['file_path'])}).[/yellow]")
+            stg.update_event_status(target['event_id'], "acknowledged")
+            stg.log_audit("inbox", "acknowledge", {"event_id": target['event_id'], "reason": "deletion event"})
+            return
+
+        # Pull the PINNED staged content the operator reviewed — not a fresh disk read.
+        sdoc = stg.get_staging_doc_by_event(target['event_id'])
+        if not sdoc or not (sdoc.get('parsed_content') or "").strip():
+            console.print("[yellow]No staged content found for this event.[/yellow]")
+            stg.update_event_status(target['event_id'], "acknowledged")
+            return
+
+        console.print(f"Approving staged content: [green]{target['file_path']}[/green]")
+
         from upii.storage.db import DB
         from upii.storage.vector import LocalVectorStore
         from upii.ingestion.chunker import RecursiveChunker
         from upii.analysis.embeddings import Embedder
-        
+        from upii.analysis.nlp import TaskExtractor
+
         db = DB()
-        try: db.init_db() 
-        except: pass
+        try: db.init_db()
+        except Exception: pass
         vec = LocalVectorStore()
-        loader = LocalLoader()
-        
-        # Load single file
-        docs = list(loader.load(target['file_path']))
-        if not docs:
-             console.print("[yellow]No content found (empty?)[/yellow]")
-        else:
-             chunker = RecursiveChunker()
-             embedder = Embedder()
-             
-             for doc in docs:
-                 doc.doc_id = str(uuid.uuid4())
-                 chunks = chunker.chunk(doc)
-                 
-                 texts = [c.text for c in chunks]
-                 embeddings = embedder.embed(texts)
-                 for i, chunk in enumerate(chunks):
-                     chunk.embedding = embeddings[i]
-                     
-                 db.upsert_document(doc, doc.doc_id)
-                 db.add_chunks(chunks)
-                 vec.add(chunks)
-                 db.add_chunks(chunks)
-                 vec.add(chunks)
-                 console.print(f"[green]Ingested {doc.path}[/green]")
-                 
-                 # Metrics
-                 try:
-                     from upii.analysis.metrics import MetricsCollector
-                     MetricsCollector().track_passive_ingest(1)
-                 except: pass
+
+        # Reconstruct the Document from the staged record.
+        metadata = {}
+        try:
+            metadata = _json.loads(sdoc.get('metadata') or "{}")
+        except Exception:
+            metadata = {}
+        ext = os.path.splitext(sdoc['file_path'])[1].lower().replace('.', '') or "note"
+
+        doc = Document(
+            path=sdoc['file_path'],
+            content_hash=sdoc['content_hash'],
+            content=sdoc['parsed_content'],
+            created_at=datetime.now(),
+            source_type=ext,
+            metadata=metadata,
+        )
+        doc.doc_id = str(uuid.uuid4())
+
+        chunker = RecursiveChunker()
+        chunks = chunker.chunk(doc)
+
+        texts = [c.text for c in chunks]
+        embeddings = Embedder().embed(texts)
+        for i, chunk in enumerate(chunks):
+            chunk.embedding = embeddings[i]
+
+        # Promote to LTM — once.
+        db.upsert_document(doc, doc.doc_id)
+        db.add_chunks(chunks)
+        vec.add(chunks)
+
+        # Extract tasks, same as explicit ingest, so the auto-task beat works for ambient too.
+        tasks = TaskExtractor().extract(chunks)
+        if tasks:
+            db.add_tasks(tasks)
+            console.print(f"[magenta]Extracted {len(tasks)} task(s)[/magenta]")
+
+        console.print(f"[green]Promoted to long-term memory[/green] ({len(chunks)} chunk(s))")
 
         stg.update_event_status(target['event_id'], "approved")
+        if sdoc.get('staging_id'):
+            stg.update_staging_status(sdoc['staging_id'], "approved")
+        stg.log_audit("inbox", "approve", {
+            "event_id": target['event_id'],
+            "file_path": sdoc['file_path'],
+            "chunks": len(chunks),
+            "tasks": len(tasks),
+        })
+
+        try:
+            from upii.analysis.metrics import MetricsCollector
+            MetricsCollector().track_passive_ingest(1)
+        except Exception:
+            pass
         return
 
-    # List events
-    events = stg.get_pending_events()
-    if not events:
-        console.print("Inbox empty.")
+    # --- REJECT ------------------------------------------------------------
+    if reject:
+        target = next((e for e in stg.get_all_events() if e['event_id'].startswith(reject)), None)
+        if not target:
+            console.print(f"[red]Event {reject} not found.[/red]")
+            return
+        if target['status'] == 'rejected':
+            console.print(f"[yellow]Event {target['event_id'][:8]} already rejected (no-op).[/yellow]")
+            return
+        if target['status'] == 'approved':
+            console.print(f"[yellow]Event {target['event_id'][:8]} was already approved into LTM; refusing to reject.[/yellow]")
+            return
+
+        # Keep the rows (audit trail must survive); only flip status.
+        stg.update_event_status(target['event_id'], "rejected")
+        sdoc = stg.get_staging_doc_by_event(target['event_id'])
+        if sdoc and sdoc.get('staging_id'):
+            stg.update_staging_status(sdoc['staging_id'], "rejected")
+        stg.log_audit("inbox", "reject", {
+            "event_id": target['event_id'],
+            "file_path": target['file_path'],
+        })
+        console.print(f"[yellow]Rejected[/yellow] {os.path.basename(target['file_path'])} (kept for audit, not in LTM).")
         return
-        
-    table = Table(title="Ambient Inbox (Staging)")
+
+    # --- LIST --------------------------------------------------------------
+    events = stg.get_all_events() if list_all else stg.get_pending_events()
+    if not events:
+        console.print("Inbox empty." if not list_all else "No events recorded.")
+        return
+
+    title = "Ambient Inbox (All)" if list_all else "Ambient Inbox (Pending)"
+    table = Table(title=title)
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Type", style="magenta")
+    if list_all:
+        table.add_column("Status", style="bold")
     table.add_column("File", style="green")
+    table.add_column("Preview", style="dim", max_width=60)
     table.add_column("Time", style="dim")
-    
+
     for e in events:
-        table.add_row(e['event_id'][:8], e['event_type'], e['file_path'], e['detected_at'])
-        
+        sdoc = stg.get_staging_doc_by_event(e['event_id'])
+        if e['event_type'] == 'deleted':
+            preview = "[deleted]"
+        else:
+            preview = _preview(sdoc.get('parsed_content') if sdoc else None)
+        row = [e['event_id'][:8], e['event_type']]
+        if list_all:
+            row.append(e['status'])
+        row += [os.path.basename(e['file_path']), preview, str(e['detected_at'])]
+        table.add_row(*row)
+
     console.print(table)
 
 
@@ -540,48 +637,114 @@ def write(
     """
     from upii.analysis.search import SearchEngine
     from upii.analysis.llm import LocalLLM
-    
+    from upii.storage.db import DB
+
+    user = getattr(config, "user_name", "Maddy")
     console.print(f"[bold magenta]Drafting {target}:[/bold magenta] {topic}")
-    
-    # 1. Retrieve Context (Style & Content)
+
+    # 1. Retrieve content context (what to say) via semantic search.
     engine = SearchEngine()
     try:
         results = engine.search(topic, limit=context_limit)
-        # Search for recent emails for style extraction if target is email
-        if target == "email":
-            style_results = engine.search("email from me", limit=3) # Hypothetical query to find "files I wrote"
-            # In a real system we'd filter by metadata={'sender': 'me'}
-            if style_results:
-                results.extend(style_results)
     except Exception as e:
         console.print(f"[red]Context retrieval failed: {e}[/red]")
         results = []
 
-    # 2. Compose with LLM
+    # 2. Retrieve STYLE context (how I say it) from my own writing only.
+    style_examples = []
+    try:
+        db = DB(); db.init_db()
+        style_examples = db.get_chunks_by_author(user, limit=3)
+    except Exception:
+        style_examples = []
+    if not style_examples:
+        logger.warning("no style examples found; using neutral tone")
+        console.print("[dim]No self-authored style examples found; using a neutral tone.[/dim]")
+
+    # 3. Compose with LLM
     llm = LocalLLM()
-    
     context_str = "\n".join([f"- {r.text}" for r in results]) if results else "No specific context found."
-    
+    style_str = "\n".join([f"- {s}" for s in style_examples]) if style_examples else "(no self-authored samples)"
+
+    fmt_hint = {
+        "email": "Start with 'Subject: <subject>' on its own line, then a blank line, then the body.",
+        "tweet": "A single tweet, under 280 characters, punchy, no hashtags-spam.",
+        "linkedin": "A LinkedIn post under 1300 characters. Open with a single-line hook, then the body.",
+    }.get(target, "Write clearly and concisely.")
+
     prompt = f"""
-    You are my personal AI agent. 
+    You are {user}'s personal writing agent. Write as {user}, in the first person.
     Task: Write a {target} about "{topic}".
-    
-    My Context/Memory:
+
+    Facts / context from my memory (ground the content in these):
     {context_str}
-    
+
+    Samples of my own writing (match this voice and tone):
+    {style_str}
+
     Instructions:
-    1. Use the style and tone found in the context (if valid).
-    2. Be concise and authentic.
-    3. Do NOT include placeholders like [Your Name], sign it as "Maddy".
-    4. If it's an email, include a Subject line.
-    
+    1. {fmt_hint}
+    2. Be concise and authentic; sound like me, not a generic AI.
+    3. Do NOT include placeholders like [Your Name]. Sign off as "{user}".
+    4. Output ONLY the {target} text, nothing else.
+
     Draft:
     """
-    
+
     with console.status("[bold green]Composing...[/bold green]"):
         draft = llm.generate(prompt)
-        
-    console.print(Panel(draft, title="Generated Draft", border_style="green"))
+
+    draft = _postprocess_draft(draft, target, user, llm)
+    console.print(Panel(draft, title=f"Generated Draft ({target})", border_style="green"))
+
+
+def _postprocess_draft(draft: str, target: str, user: str, llm) -> str:
+    """Deterministically shape the LLM draft to the target's contract."""
+    import re
+    draft = (draft or "").strip()
+
+    if target == "email":
+        # Guarantee a 'Subject: ...' first line followed by a blank line + body.
+        m = re.search(r"(?im)^\s*subject\s*:\s*(.+)$", draft)
+        if m:
+            subject = m.group(1).strip()
+            body = (draft[:m.start()] + draft[m.end():]).strip()
+        else:
+            # Synthesize a subject from the first non-empty line.
+            first = next((l.strip() for l in draft.splitlines() if l.strip()), "Quick note")
+            subject = first[:78]
+            body = draft
+        return f"Subject: {subject}\n\n{body}".strip()
+
+    if target == "tweet":
+        # Re-prompt up to twice to get under 280 chars, then hard-truncate.
+        attempts = 0
+        while len(draft) > 280 and attempts < 2:
+            attempts += 1
+            draft = (llm.generate(
+                f"Rewrite this as a single tweet under 280 characters. "
+                f"Output only the tweet:\n\n{draft}"
+            ) or draft).strip()
+        if len(draft) > 280:
+            cut = draft[:279]
+            if " " in cut:
+                cut = cut[:cut.rfind(" ")]
+            draft = cut + "…"
+        return draft
+
+    if target == "linkedin":
+        attempts = 0
+        while len(draft) > 1300 and attempts < 2:
+            attempts += 1
+            draft = (llm.generate(
+                f"Shorten this LinkedIn post to under 1300 characters, keeping the opening hook. "
+                f"Output only the post:\n\n{draft}"
+            ) or draft).strip()
+        if len(draft) > 1300:
+            draft = draft[:1299] + "…"
+        return draft
+
+    return draft
 
 
 # --- Founder Demo Mode ---

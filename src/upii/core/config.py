@@ -9,6 +9,8 @@ class Config:
     vector_store_path: str = "upii_vectors"
     chunk_size: int = 1000
     chunk_overlap: int = 200
+    # Identity (used for self-authored style filtering & signatures)
+    user_name: str = "Maddy"
     # LLM & RAG
     llm_model: str = "llama3.2" # Default to fast model
     embedding_model: str = "all-MiniLM-L6-v2"

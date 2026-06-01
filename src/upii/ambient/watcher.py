@@ -18,7 +18,8 @@ class FileSystemSource(Source):
         # Cache: path -> (mtime, size, content_hash)
         self._cache: Dict[str, Tuple[float, int, str]] = {}
         self.poll_interval = 2.0
-        self.debounce_seconds = 1.0
+        # Skip files touched within this window (avoids capturing mid-write).
+        self.debounce_seconds = 0.3
         self.loader = LocalLoader()
 
     def configure(self, config: Dict):
@@ -142,6 +143,39 @@ class FileSystemSource(Source):
         event_id = self.storage.add_event("deleted", path)
         self.storage.log_audit(self.name, "capture", {"path": path, "type": "deleted"})
         logger.debug(f"Recorded delete: {path}")
+
+class PollingWatcher:
+    """
+    Foreground/daemon wrapper around FileSystemSource.
+
+    Sources its watch paths from the FeatureFlags singleton (features.yaml),
+    which is how `upii watch <path>` and the test-suite configure paths. This
+    is the wire between features.add_watch_path() and the running source.
+    """
+
+    def __init__(self, interval: float = None):
+        from upii.core.features import features
+
+        self.source = FileSystemSource()
+        cfg = {"watch_paths": list(features.get_watch_paths())}
+        if interval is not None:
+            cfg["interval"] = interval
+        self.source.configure(cfg)
+
+    @property
+    def watch_paths(self) -> List[str]:
+        return self.source.watch_paths
+
+    @property
+    def is_running(self) -> bool:
+        return self.source.is_running
+
+    def start(self):
+        self.source.start()
+
+    def stop(self):
+        self.source.stop()
+
 
 # Auto-register
 # Note: In a real app we might avoid auto-register on import if import side-effects are bad,
