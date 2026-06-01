@@ -21,7 +21,8 @@ dependencies = [
     "lancedb",
     "sentence-transformers",
     "ollama",
-    "pypdf"
+    "pypdf",
+    "watchdog>=4.0.0"
 ]
 
 [project.scripts]
