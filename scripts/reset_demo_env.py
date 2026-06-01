@@ -43,14 +43,21 @@ def reset_and_seed():
         path = os.path.join(DEMO_DIR, filename)
         with open(path, "r") as f:
             content = f.read()
-            
+
+        # Honour YAML frontmatter (e.g. author:) so self-authored style works.
+        from upii.ingestion.loader import parse_frontmatter
+        fm_meta, body = parse_frontmatter(content)
+
+        meta = {"demo": "true", "filename": filename}
+        meta.update(fm_meta)
+
         doc = Document(
             path=path,
             content_hash=f"seed_{filename}_{uuid.uuid4()}",
-            content=content,
+            content=body,
             created_at=datetime.datetime.now(),
             source_type="md",
-            metadata={"demo": "true", "filename": filename}
+            metadata=meta
         )
         doc.doc_id = str(uuid.uuid4())
         docs_to_embed.append(doc)

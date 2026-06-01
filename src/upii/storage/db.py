@@ -200,6 +200,32 @@ class DB:
         finally:
             conn.close()
 
+    def get_chunks_by_author(self, author: str, limit: int = 3) -> List[str]:
+        """Return chunk texts from documents whose metadata.author == author.
+
+        Used by `write` to ground tone/style in the user's own writing.
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT c.text AS text
+                FROM chunks c
+                JOIN documents d ON c.doc_id = d.doc_id
+                WHERE json_extract(d.metadata, '$.author') = ?
+                ORDER BY d.ingestion_time DESC
+                LIMIT ?
+                """,
+                (author, limit),
+            )
+            return [row['text'] for row in cursor.fetchall()]
+        except sqlite3.Error:
+            return []
+        finally:
+            conn.close()
+
     def add_tasks(self, tasks: List[Task]):
         conn = self.get_connection()
         cursor = conn.cursor()

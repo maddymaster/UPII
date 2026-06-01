@@ -10,6 +10,35 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def parse_frontmatter(content: str):
+    """Split a leading YAML frontmatter block from markdown content.
+
+    Returns (metadata: dict, body: str). If no `---`-delimited frontmatter is
+    present, returns ({}, content) unchanged. Best-effort: a malformed block is
+    treated as no frontmatter.
+    """
+    if not content.startswith("---"):
+        return {}, content
+    lines = content.splitlines()
+    # First line must be exactly the opening fence.
+    if lines[0].strip() != "---":
+        return {}, content
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            block = "\n".join(lines[1:i])
+            body = "\n".join(lines[i + 1:])
+            try:
+                import yaml
+                meta = yaml.safe_load(block) or {}
+                if not isinstance(meta, dict):
+                    return {}, content
+                return meta, body.lstrip("\n")
+            except Exception:
+                return {}, content
+    return {}, content
+
+
 class LocalLoader:
     """Handles loading and hashing of files."""
 
@@ -68,21 +97,29 @@ class LocalLoader:
         try:
             content_hash = self.compute_file_hash(file_path)
             content = self._extract_text(file_path, ext)
-            
+
+            # Pull YAML frontmatter (e.g. `author:`) out of text formats.
+            meta = {}
+            if ext in ('.md', '.txt'):
+                meta, content = parse_frontmatter(content)
+
             if not content.strip():
                 logger.warning(f"Empty content for {file_path}")
                 return
 
             stats = os.stat(file_path)
             created_at = datetime.fromtimestamp(stats.st_ctime)
-            
+
+            metadata = {"size": stats.st_size}
+            metadata.update(meta)  # frontmatter keys (author, etc.) win
+
             yield Document(
                 path=str(Path(file_path).resolve()),
                 content_hash=content_hash,
                 content=content,
                 created_at=created_at,
                 source_type=ext.replace('.', ''),
-                metadata={"size": stats.st_size}
+                metadata=metadata
             )
             
         except Exception as e:

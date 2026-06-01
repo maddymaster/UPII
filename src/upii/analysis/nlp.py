@@ -13,6 +13,7 @@ class TaskExtractor:
         r"-\s*\[\s*\]\s*(.*)",  # - [ ] Task
         r"\*\s*\[\s*\]\s*(.*)", # * [ ] Task
         r"(?i)\bAction Item[:\s]+(.*)",
+        r"(?i)\bAction:\s*(.+)",  # "Action: spin up the S3 bucket"
     ]
 
     def extract(self, chunks: List[Chunk]) -> List[Task]:

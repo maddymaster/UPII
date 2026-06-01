@@ -1,3 +1,6 @@
+---
+author: Maddy
+---
 # Sync: NASA PACE Integration
 **Date:** Last Week (Oct 24, 2025)
 **Participants:** Maddy (Ambee), Dr. Elena (NASA Goddard), Project Leads

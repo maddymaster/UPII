@@ -1,3 +1,6 @@
+---
+author: Maddy
+---
 # Ambee Strategic Roadmap 2026: The "Planetary Pulse" Initiative
 
 **Owner:** Maddy (CTO)
