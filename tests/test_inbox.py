@@ -67,6 +67,26 @@ def test_inbox_approve_uses_staged_content(isolated_env):
     assert len(_ltm_chunk_texts(db)) == before
 
 
+def test_inbox_idempotent_approve(isolated_env):
+    """Approving an already-approved event is a clean no-op (no double insert)."""
+    tmp_path, stg, db = isolated_env
+    from upii.cli import inbox
+
+    file_path = str(tmp_path / "note.md")
+    event_id = stg.add_event("created", file_path)
+    stg.add_staging_doc(event_id, file_path, "Some staged note content", "h_note", {})
+
+    inbox(approve=event_id[:8], reject=None, list_all=False)
+    first = _ltm_chunk_texts(db)
+    assert len(first) >= 1
+    assert next(e for e in stg.get_all_events() if e["event_id"] == event_id)["status"] == "approved"
+
+    # Re-approve twice more — LTM must not grow, no exception raised.
+    inbox(approve=event_id[:8], reject=None, list_all=False)
+    inbox(approve=event_id[:8], reject=None, list_all=False)
+    assert _ltm_chunk_texts(db) == first
+
+
 def test_inbox_reject(isolated_env):
     """Reject flips status + audits, keeps rows, never enters LTM."""
     tmp_path, stg, db = isolated_env

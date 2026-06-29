@@ -71,6 +71,9 @@ class FileSystemSource(Source):
 
         if self._start_watchdog():
             self.backend = "watchdog"
+            # watchdog only reports events that occur AFTER it starts; capture
+            # files already present so behaviour matches the polling backend.
+            self._initial_scan()
         else:
             self.backend = "polling"
             if not self._interval_explicit:
@@ -195,6 +198,25 @@ class FileSystemSource(Source):
             self._handle_change(path, "created", stat.st_mtime, stat.st_size)
         else:
             self._handle_change(path, "modified", stat.st_mtime, stat.st_size, cached[2])
+
+    def _initial_scan(self):
+        """Capture files already present when watching begins (watchdog does
+        not replay pre-existing files). No debounce skip: these are settled."""
+        for root_path in self.watch_paths:
+            if not os.path.isdir(root_path):
+                continue
+            for root, _, files in os.walk(root_path):
+                for file in files:
+                    if not self._is_watchable(file):
+                        continue
+                    abs_path = os.path.join(root, file)
+                    if abs_path in self._cache:
+                        continue
+                    try:
+                        stat = os.stat(abs_path)
+                    except OSError:
+                        continue
+                    self._handle_change(abs_path, "created", stat.st_mtime, stat.st_size)
 
     def _on_delete(self, path: str):
         with self._timers_lock:

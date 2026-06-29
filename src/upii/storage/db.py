@@ -200,6 +200,71 @@ class DB:
         finally:
             conn.close()
 
+    def get_documents_by_path(self, source_path: str) -> List[Dict[str, str]]:
+        """Return [{doc_id, content_hash}] for every document stored at a path.
+
+        Used by the edit path: a changed file keeps its ``source_path`` but gets a
+        new ``content_hash``, so we look up prior versions by path to clean them up.
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT doc_id, content_hash FROM documents WHERE source_path = ?",
+                (source_path,),
+            )
+            return [
+                {"doc_id": row["doc_id"], "content_hash": row["content_hash"]}
+                for row in cursor.fetchall()
+            ]
+        finally:
+            conn.close()
+
+    def get_chunk_ids_for_doc(self, doc_id: str) -> List[str]:
+        """Return the chunk ids belonging to a document."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT chunk_id FROM chunks WHERE doc_id = ?", (doc_id,))
+            return [row[0] for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
+    def delete_document(self, content_hash: str) -> Optional[Dict[str, Any]]:
+        """Remove a document and everything anchored to it, by content hash.
+
+        Deletes the document row, its chunks, and any entity edges / tasks that
+        referenced it. (FK cascades are not enabled per-connection, so we delete
+        explicitly.) Returns ``{"doc_id", "chunk_ids"}`` so the caller can purge the
+        matching vectors, or ``None`` if no such document exists.
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT doc_id FROM documents WHERE content_hash = ?", (content_hash,)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            doc_id = row["doc_id"]
+
+            cursor.execute("SELECT chunk_id FROM chunks WHERE doc_id = ?", (doc_id,))
+            chunk_ids = [r[0] for r in cursor.fetchall()]
+
+            cursor.execute("DELETE FROM entity_edges WHERE source_doc_id = ?", (doc_id,))
+            cursor.execute("DELETE FROM tasks WHERE source_doc_id = ?", (doc_id,))
+            cursor.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
+            cursor.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
+            conn.commit()
+            return {"doc_id": doc_id, "chunk_ids": chunk_ids}
+        except sqlite3.Error as e:
+            raise StorageError(f"Failed to delete document: {e}")
+        finally:
+            conn.close()
+
     def get_chunks_by_author(self, author: str, limit: int = 3) -> List[str]:
         """Return chunk texts from documents whose metadata.author == author.
 

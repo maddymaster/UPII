@@ -61,8 +61,11 @@ class LocalLoader:
             return
 
         if os.path.isdir(path):
-            for root, _, files in os.walk(path):
-                for file in files:
+            # Deterministic traversal: sort subdirectories and files so ingest
+            # order is a pure function of the tree, not of filesystem ordering.
+            for root, dirs, files in os.walk(path):
+                dirs.sort()
+                for file in sorted(files):
                     full_path = os.path.join(root, file)
                     yield from self._process_file(full_path)
         else:

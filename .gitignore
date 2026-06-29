@@ -27,3 +27,10 @@ upii_vectors/
 
 # Local config (may contain API keys)
 .upii_config.yaml
+
+# Runtime state (written by `upii watch`; not source)
+features.yaml
+sources.yaml
+
+# Phase 2 demo scratch dir (repro_demo.sh cleans this up; ignore if it crashes mid-run)
+.repro_demo/
