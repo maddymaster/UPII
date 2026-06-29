@@ -73,7 +73,10 @@ class StagingDB:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ?", (limit,))
+        # timestamp is CURRENT_TIMESTAMP (1s resolution); break ties on the implicit
+        # insertion-order rowid so the most recent entry is always first, even when
+        # several entries land in the same second.
+        cursor.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC, rowid DESC LIMIT ?", (limit,))
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
