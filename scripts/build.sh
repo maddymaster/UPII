@@ -6,8 +6,8 @@ echo "Building UPII v1.0 for macOS..."
 # Install PyInstaller if not present
 pip install pyinstaller
 
-# Clean previous builds
-rm -rf build dist *.spec
+# Clean previous builds (keep the committed upii.spec)
+rm -rf build dist
 
 # Build
 pyinstaller --name upii \

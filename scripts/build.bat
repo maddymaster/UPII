@@ -4,13 +4,12 @@ echo Building UPII v1.0 for Windows...
 :: Install PyInstaller if not present
 pip install pyinstaller
 
-:: Clean previous builds
+:: Clean previous builds (keep the committed upii.spec)
 if exist build rd /s /q build
 if exist dist rd /s /q dist
-if exist *.spec del *.spec
 
-:: Build
-pyinstaller --name upii.exe ^
+:: Build (PyInstaller appends .exe on Windows -> dist\upii.exe)
+pyinstaller --name upii ^
     --onefile ^
     --clean ^
     --collect-all "sentence_transformers" ^
