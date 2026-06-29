@@ -51,6 +51,7 @@ def ingest(path: str, recursive: bool = False, force: bool = typer.Option(False,
     from upii.storage.vector import LocalVectorStore
     from upii.ingestion.loader import LocalLoader
     from upii.ingestion.chunker import RecursiveChunker
+    from upii.ingestion.pipeline import ingest_document
     from upii.analysis.embeddings import Embedder
 
     console.print(f"[bold blue]Ingesting[/bold blue] from {path} (Recursive: {recursive}, Force: {force})")
@@ -77,38 +78,29 @@ def ingest(path: str, recursive: bool = False, force: bool = typer.Option(False,
     # For a CLI progress bar, yielding is better but we don't know total upfront easily without double scan.
     # Let's just process in stream and print status.
     
+    updated_count = 0
     for doc in loader.load(path):
         try:
-            # 3. Check redundancy
-            if not force:
-                existing_doc = db.get_document_by_hash(doc.content_hash)
-                if existing_doc:
-                    console.print(f"Skipping [dim]{doc.path}[/dim] (Unchanged)")
-                    # Optionally update path in DB if moved
-                    skipped_count += 1
-                    continue
-                
-            console.print(f"Processing [green]{doc.path}[/green]")
-            
-            # 4. Ingest new
-            doc_uuid = str(uuid.uuid4())
-            doc.doc_id = doc_uuid # Inject UUID
-            
-            # Chunk
-            chunks = chunker.chunk(doc)
-            
-            # Embed
-            texts = [c.text for c in chunks]
-            embeddings = embedder.embed(texts)
-            for i, chunk in enumerate(chunks):
-                chunk.embedding = embeddings[i]
-                
-            # Store (Metadata + Vector)
-            # Transactionally ideally, but here sequential
-            db.upsert_document(doc, doc_uuid)
-            db.add_chunks(chunks)
-            vector_store.add(chunks)
-            
+            # 3-4. Deterministic ingest: dedup (no-op on unchanged), edit cleanup,
+            #      chunk/embed/store — all via the shared pipeline.
+            result = ingest_document(doc, db, vector_store, embedder, chunker, force=force)
+
+            if result.status == "skipped":
+                console.print(f"Skipping [dim]{doc.path}[/dim] (Unchanged)")
+                skipped_count += 1
+                continue
+
+            if result.status == "updated":
+                console.print(
+                    f"Updating [green]{doc.path}[/green] "
+                    f"[dim](purged {result.removed_chunks} stale chunks)[/dim]"
+                )
+                updated_count += 1
+            else:
+                console.print(f"Processing [green]{doc.path}[/green]")
+
+            chunks = result.chunks or []
+
             # 5. Extract Tasks
             from upii.analysis.nlp import TaskExtractor
             extractor = TaskExtractor()
@@ -125,7 +117,10 @@ def ingest(path: str, recursive: bool = False, force: bool = typer.Option(False,
             logger.error(f"Ingestion failed for {doc.path}", exc_info=True)
             error_count += 1
             
-    console.print(f"\n[bold]Summary[/bold]: Processed {processed_count}, Skipped {skipped_count}, Errors {error_count}")
+    console.print(
+        f"\n[bold]Summary[/bold]: Processed {processed_count} "
+        f"(of which {updated_count} updated), Skipped {skipped_count}, Errors {error_count}"
+    )
     
     # Metrics
     try:
@@ -426,6 +421,7 @@ def inbox(
         from upii.storage.db import DB
         from upii.storage.vector import LocalVectorStore
         from upii.ingestion.chunker import RecursiveChunker
+        from upii.ingestion.pipeline import ingest_document
         from upii.analysis.embeddings import Embedder
         from upii.analysis.nlp import TaskExtractor
 
@@ -450,20 +446,10 @@ def inbox(
             source_type=ext,
             metadata=metadata,
         )
-        doc.doc_id = str(uuid.uuid4())
 
-        chunker = RecursiveChunker()
-        chunks = chunker.chunk(doc)
-
-        texts = [c.text for c in chunks]
-        embeddings = Embedder().embed(texts)
-        for i, chunk in enumerate(chunks):
-            chunk.embedding = embeddings[i]
-
-        # Promote to LTM — once.
-        db.upsert_document(doc, doc.doc_id)
-        db.add_chunks(chunks)
-        vec.add(chunks)
+        # Promote to LTM via the shared deterministic pipeline (dedup + edit cleanup).
+        result = ingest_document(doc, db, vec, Embedder(), RecursiveChunker())
+        chunks = result.chunks or []
 
         # Extract tasks, same as explicit ingest, so the auto-task beat works for ambient too.
         tasks = TaskExtractor().extract(chunks)
@@ -926,19 +912,9 @@ def demo(
             metadata={"type": "strategy"}
         )
         
-        # Ingest
-        doc.doc_id = str(uuid.uuid4())
-        chunker = RecursiveChunker()
-        chunks = chunker.chunk(doc)
-        embedder = Embedder()
-        texts = [c.text for c in chunks]
-        embeddings = embedder.embed(texts)
-        for i, c in enumerate(chunks):
-            c.embedding = embeddings[i]
-            
-        db.upsert_document(doc, doc.doc_id)
-        db.add_chunks(chunks)
-        LocalVectorStore().add(chunks)
+        # Ingest via the shared deterministic pipeline.
+        from upii.ingestion.pipeline import ingest_document
+        ingest_document(doc, db, LocalVectorStore(), Embedder(), RecursiveChunker(), force=True)
         
         console.print(f"[green]✓ Seeded Documents[/green]: Strategy & Emails")
         console.print("[bold]Ready for 'upii demo investor'[/bold]")

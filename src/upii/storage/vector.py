@@ -51,6 +51,35 @@ class LocalVectorStore:
         except Exception as e:
             raise StorageError(f"LanceDB error: {e}")
 
+    def delete(self, doc_hash: str) -> None:
+        """Delete all vectors belonging to a document (by ``doc_id``).
+
+        No-op if the table or rows do not exist. Used by edit/delete handling to
+        keep the vector store in sync with the metadata store.
+        """
+        table = self._get_table()
+        if table is None:
+            return
+        try:
+            # Escape single quotes to keep the SQL predicate well-formed.
+            safe = doc_hash.replace("'", "''")
+            table.delete(f"doc_id = '{safe}'")
+        except Exception as e:
+            raise StorageError(f"LanceDB delete error: {e}")
+
+    def delete_chunks(self, chunk_ids: List[str]) -> None:
+        """Delete specific vectors by chunk id (``id`` column). No-op if empty."""
+        if not chunk_ids:
+            return
+        table = self._get_table()
+        if table is None:
+            return
+        try:
+            quoted = ",".join("'" + c.replace("'", "''") + "'" for c in chunk_ids)
+            table.delete(f"id IN ({quoted})")
+        except Exception as e:
+            raise StorageError(f"LanceDB delete error: {e}")
+
     def search(self, query_vec: List[float], limit: int = 5, where_clause: Optional[str] = None) -> List[Chunk]:
         table = self._get_table()
         if table is None:

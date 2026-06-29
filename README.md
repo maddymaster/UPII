@@ -45,9 +45,14 @@ no-op; an edited file is diffed at the chunk level. This makes the corpus
 state — which is a precondition for trustworthy personal recall.
 
 ### Deterministic chunking
-Chunk boundaries are a pure function of content and configuration, not of
-ingestion order or wall-clock time. The same document always produces the same
-chunk hashes, enabling stable citations and cache-safe re-embedding.
+Chunk boundaries **and chunk hashes** are a pure function of `(chunk text,
+chunker config)` — not of ingestion order, document path, or wall-clock time.
+The same content always produces the same chunk id, so an edit elsewhere in a
+file leaves an untouched chunk's hash stable, and an independent re-ingest of
+the same corpus reproduces **100% of chunk hashes**. This is what makes
+citations stable and re-embedding cache-safe. (See
+[`docs/phase2_reproducibility_audit.md`](docs/phase2_reproducibility_audit.md)
+and [`docs/phase2_deliverables.md`](docs/phase2_deliverables.md).)
 
 ### Multi-signal context rehydration
 The core retrieval innovation is the **Context Rehydrator**, which fuses three
@@ -100,6 +105,7 @@ graph TD
 | Layer | Responsibility | Technology |
 |-------|----------------|------------|
 | Capture | Ingest, dedup, ambient watch | content hashing, FS watcher |
+| **Ingestion pipeline** | **One deterministic ingest/remove path: dedup · edit cleanup · delete** | **`ingestion/pipeline.py` + `ingestion/identity.py`** |
 | Storage | Metadata source of truth | SQLite |
 | Vectors | Semantic index | LanceDB |
 | Embeddings | Local vectorization | sentence-transformers (MiniLM) |
@@ -108,15 +114,63 @@ graph TD
 | Reasoning | Attributed synthesis | Ollama (local) / Gemini (optional) |
 | Observability | Health checks, metrics | `doctor`, `metrics` |
 
+### The ingestion pipeline (Phase 2 / T1.2)
+
+Every path that writes to long-term memory — the `ingest` command, the
+`watch`-approve flow, and the demo seed — now flows through a **single
+deterministic pipeline** (`src/upii/ingestion/pipeline.py`), so the dedup / edit
+/ delete semantics are defined once and cannot drift:
+
+- **Identity is content-addressed.** `doc_id = doc_id_for(content_hash)` and
+  `chunk_id = hash(chunk_text, config)` — both pure functions, no random UUIDs.
+- **Dedup** — re-ingesting unchanged bytes is a no-op.
+- **Edit** — a changed file keeps its path but gets a new content hash; the prior
+  version's chunks + vectors + metadata are purged before the new one is written.
+- **Delete** — `remove_document` cleans chunks, vectors and metadata together.
+
+```
+file ──► loader (sorted walk) ──► ingest_document(doc)
+                                     │  doc_id = doc_id_for(content_hash)
+                                     ├─ already stored & unchanged?  ─► no-op (dedup)
+                                     ├─ prior version at this path?  ─► purge it (edit)
+                                     └─ chunk ─► embed ─► upsert(SQLite) + (re)add(LanceDB)
+```
+
 ---
 
-## Installation
+## Setup
+
+UPII targets **Python 3.9+**. A virtual environment named `venv/` is the
+expected workflow in this repo.
 
 ```bash
+# 1. Create and activate the environment
+python3 -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
+
+# 2. Install dependencies (+ the upii CLI entry point)
 pip install -r requirements.txt
-# or, as a package:
-pip install -e .
+pip install -e .                  # exposes the `upii` command
+
+# 3. Verify the local stack
+upii doctor                       # checks db, vectors, embedding model, disk
 ```
+
+First run downloads the local embedding model (`all-MiniLM-L6-v2`, ~90 MB) and,
+if you use local reasoning, requires [Ollama](https://ollama.com) with a pulled
+model (e.g. `ollama pull llama3.2`). Neither the corpus nor embeddings ever
+leave the machine.
+
+### Run the tests
+
+```bash
+source venv/bin/activate
+pytest tests/ -q                  # full suite
+pytest tests/test_chunk_determinism.py tests/test_incremental.py -q   # Phase 2 / T1.2 evidence
+```
+
+> Note: there is no `Makefile` in this repo — run the commands and scripts
+> directly as shown.
 
 ### Optional: remote reasoning
 By default UPII runs fully locally. To use Gemini as the reasoning engine,
@@ -146,15 +200,66 @@ upii metrics show                 # observability
 
 Run `upii --help` (or `python -m upii.cli --help`) for the full command set.
 
+### Reproducibility & benchmarks
+
+```bash
+# Recordable demo: ingest, then re-ingest to an identical state (deterministic)
+bash scripts/demo/repro_demo.sh
+
+# Scale + 100%-hash-reproducibility report -> bench/results/scale_REPORT.md
+python scripts/bench/scale_check.py --docs 500 --paras 60
+#   grant/hardware run (~1,000,000 chunks):
+#   python scripts/bench/scale_check.py --docs 20000
+```
+
+---
+
+## Repository layout
+
+```
+src/upii/
+├── cli.py                 # Typer CLI: ingest, search, ask, write, watch, inbox, doctor, …
+├── core/                  # config, types, logging, feature flags, errors
+├── ingestion/
+│   ├── loader.py          # file loading + hashing, deterministic sorted walk
+│   ├── chunker.py         # content-addressed deterministic chunking
+│   ├── identity.py        # doc_id_for() — deterministic document ids   (Phase 2)
+│   └── pipeline.py        # single ingest/remove path: dedup·edit·delete (Phase 2)
+├── storage/
+│   ├── db.py              # SQLite metadata store (source of truth)
+│   └── vector.py          # LanceDB vector store
+├── analysis/              # embeddings, search, rehydration, entity extraction, llm, metrics
+├── ambient/               # filesystem watcher, staging DB, approval inbox, connectors
+└── overlay/               # Cmd+Shift+K capture overlay daemon
+
+tests/                     # pytest suite (incl. test_chunk_determinism, test_incremental)
+scripts/
+├── bench/scale_check.py   # scale + reproducibility harness  -> bench/results/
+└── demo/repro_demo.sh     # recordable re-ingestion demo
+docs/                      # design blueprint, data model, audits, deliverables
+project_docs/              # extended internal design / QA / release docs
+ELEVATE_Nxt_Grant/         # grant milestone build plan
+```
+
+Key documents:
+- [`docs/phase2_reproducibility_audit.md`](docs/phase2_reproducibility_audit.md) — non-determinism audit + fixes (T1.2).
+- [`docs/phase2_deliverables.md`](docs/phase2_deliverables.md) — Phase 2 deliverables, features and metrics vs. grant.
+- [`docs/design_blueprint_v1.md`](docs/design_blueprint_v1.md) · [`docs/data_model.md`](docs/data_model.md) — architecture & schema.
+
 ---
 
 ## Status & Roadmap
 
-UPII is a **private research preview**. The current substrate (local capture,
-deduplication, deterministic chunking, multi-signal rehydration, attributed
-synthesis) is functional; ongoing work focuses on richer relational extraction,
-broader ambient sources (mail, calendar connectors), and tighter answer
-verification.
+UPII is a **private research preview**, developed against the ELEVATE NxT grant
+milestones (Annexure-1).
+
+- **Phase 1 / T1.1** — R&D infra + performance baseline *(benchmark harness; hardware run pending)*.
+- **Phase 2 / T1.2** — Deterministic, reproducible, content-addressed ingestion: **delivered**
+  (dedup · edit · delete validated; 100% hash reproducibility). See
+  [`docs/phase2_deliverables.md`](docs/phase2_deliverables.md).
+- **Next** — Context Rehydrator v2 retrieval eval (T1.3), local KG extraction + viz (T1.4),
+  attributed synthesis + abstention (T2.2), and a user-facing `upii forget` to expose the
+  Phase 2 delete capability.
 
 Technical deep-dives live in [`project_docs/`](project_docs/) and
 [`docs/`](docs/) — start with the design blueprint and data model.
