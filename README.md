@@ -138,6 +138,38 @@ file ──► loader (sorted walk) ──► ingest_document(doc)
 
 ---
 
+## What's in this version (v0.5.0)
+
+This release delivers the **Tranche-1 / T1.2 milestone — deterministic,
+reproducible, content-addressed ingestion** — on top of the existing local
+capture, retrieval and ambient stack.
+
+**Done in this version**
+- **Content-addressed identity** — documents and chunks are identified by a hash
+  of their content (no random UUIDs, no wall-clock, no path dependence). Same
+  input ⇒ same memory state.
+- **Single deterministic ingestion pipeline** (`ingestion/pipeline.py`) shared by
+  `ingest`, `watch`-approve and the demo seed:
+  - **Dedup** — re-ingesting unchanged bytes is a no-op.
+  - **Edit** — a changed file re-chunks only what changed; unchanged chunk hashes
+    stay stable; the prior version (chunks + vectors + metadata) is purged.
+  - **Delete** — `remove_document` cleans chunks, vectors and metadata together.
+- **Proven reproducibility** — an independent re-ingest reproduces **100% of chunk
+  hashes**; validated by `tests/test_chunk_determinism.py` +
+  `tests/test_incremental.py` and the `scripts/bench/scale_check.py` report.
+- **Tooling & docs** — `scripts/demo/repro_demo.sh`, the scale/reproducibility
+  harness, plus [`docs/phase2_deliverables.md`](docs/phase2_deliverables.md),
+  [`docs/phase2_reproducibility_audit.md`](docs/phase2_reproducibility_audit.md)
+  and a jury demo script ([`docs/jury_progress_demo.md`](docs/jury_progress_demo.md)).
+- **Reliability fixes** — deterministic audit-log ordering in the ambient watcher;
+  corrected cross-platform build scripts and CI (`upload/download-artifact@v4`).
+
+See [`docs/phase2_deliverables.md`](docs/phase2_deliverables.md) for the full
+deliverable-by-deliverable status and metrics, and **What's Next** under
+[Status & Roadmap](#status--roadmap).
+
+---
+
 ## Setup
 
 UPII targets **Python 3.9+**. A virtual environment named `venv/` is the
@@ -211,6 +243,40 @@ python scripts/bench/scale_check.py --docs 500 --paras 60
 #   grant/hardware run (~1,000,000 chunks):
 #   python scripts/bench/scale_check.py --docs 20000
 ```
+
+---
+
+## Deployment
+
+UPII ships as a CLI for **macOS** and **Windows 10/11**. There are two
+distribution paths — full details and end-user steps live in
+[`docs/packaging_and_release.md`](docs/packaging_and_release.md).
+
+**1. From source (recommended).** The `Setup` steps above (`venv` →
+`pip install -r requirements.txt` → `pip install -e .`) are the supported install
+on both platforms.
+
+**2. Standalone binary (PyInstaller).** A single executable for users without
+Python. Build with the bundled scripts:
+
+```bash
+./scripts/build.sh        # macOS/Linux -> dist/upii        (verified: 212 MB arm64)
+scripts\build.bat         # Windows     -> dist\upii.exe
+# or, cross-platform, from the committed spec:
+pyinstaller upii.spec
+```
+
+**Release pipeline.** Pushing a `v*` tag triggers
+`.github/workflows/release.yml`, which builds the binaries on `macos-latest` +
+`windows-latest` and publishes them to a GitHub Release:
+
+```bash
+git tag v0.5.0 && git push origin v0.5.0
+```
+
+> Binaries are currently **unsigned** — first launch needs a Gatekeeper (macOS)
+> or SmartScreen (Windows) bypass; the embedding model downloads once on first
+> run. Code signing/notarization is a planned release step.
 
 ---
 
