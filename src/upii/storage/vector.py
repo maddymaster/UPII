@@ -105,6 +105,48 @@ class LocalVectorStore:
             return chunks
         except Exception as e:
             raise StorageError(f"LanceDB search error: {e}")
+    def search_scored(
+        self, query_vec: List[float], limit: int = 5, where_clause: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Like :meth:`search` but keeps the similarity distance and timestamp.
+
+        Returns a list of ``{"chunk": Chunk, "distance": float, "timestamp": str}``
+        ordered by ascending distance (most similar first). ``distance`` is the raw
+        LanceDB metric (L2 by default); the caller converts it to a similarity. The
+        rehydrator needs the distance for the *semantic* signal and the ingest
+        timestamp for the *temporal* recency signal, both of which the plain
+        :meth:`search` discards.
+        """
+        table = self._get_table()
+        if table is None:
+            return []
+        try:
+            query = table.search(query_vec).limit(limit)
+            if where_clause:
+                query = query.where(where_clause)
+            results = query.to_pandas()
+
+            out: List[Dict[str, Any]] = []
+            for _, row in results.iterrows():
+                dist = row["_distance"] if "_distance" in results.columns else None
+                out.append(
+                    {
+                        "chunk": Chunk(
+                            doc_hash=row["doc_id"],
+                            chunk_hash=row["id"],
+                            text=row["text"],
+                            start_char=0,
+                            end_char=0,
+                            embedding=None,
+                        ),
+                        "distance": float(dist) if dist is not None else None,
+                        "timestamp": row["timestamp"] if "timestamp" in results.columns else None,
+                    }
+                )
+            return out
+        except Exception as e:
+            raise StorageError(f"LanceDB search error: {e}")
+
     def count(self) -> int:
         table = self._get_table()
         if table is None:
