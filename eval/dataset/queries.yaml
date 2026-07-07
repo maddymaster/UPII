@@ -1,0 +1,82 @@
+# UPII retrieval eval — authored queries + relevance rules.
+#
+# This file is the human-editable source of truth. Each query lists the chunks
+# that *should* be retrieved for it, described by a stable rule rather than by
+# raw chunk id:
+#
+#   source:   corpus filename (basename). Every chunk of that document matches.
+#   contains: (optional) only chunks whose text contains this substring match.
+#             Use it when a document has several chunks and only one is relevant.
+#
+# `build_dataset.py` ingests the corpus deterministically, resolves these rules to
+# concrete content-addressed chunk ids, and writes dataset/labels.json (the
+# committed labelled set that run_eval.py scores against). Because chunk ids are a
+# pure function of (chunk text, chunker config), the resolved labels are stable
+# across machines and re-runs.
+#
+# To relevance-label by hand instead of (or on top of) these rules, run:
+#   python eval/build_dataset.py annotate
+
+queries:
+  - id: q01_omega_embedding_model
+    query: "Which embedding model did we choose for Project Omega and why?"
+    relevant:
+      - source: project_omega.md
+
+  - id: q02_retrieval_latency_target
+    query: "What is the p95 latency target for context retrieval?"
+    relevant:
+      - source: performance_slo.md
+
+  - id: q03_memory_leak_fix
+    query: "Who fixed the memory leak in the file watcher?"
+    relevant:
+      - source: team_sync.md
+        contains: "memory leak"
+
+  - id: q04_offsite_budget
+    query: "How much money is budgeted for the team offsite?"
+    relevant:
+      - source: financials.md
+
+  - id: q05_local_vector_store
+    query: "Which vector database do we use locally?"
+    relevant:
+      - source: architecture.md
+
+  - id: q06_duplicate_vectors_postmortem
+    query: "What caused the duplicate vectors bug on re-ingest and how was it fixed?"
+    relevant:
+      - source: postmortem_ingest.md
+
+  - id: q07_q3_roadmap
+    query: "What are the top priorities on the Q3 roadmap?"
+    relevant:
+      - source: roadmap_q3.md
+
+  - id: q08_data_privacy
+    query: "Does UPII upload my documents to the cloud?"
+    relevant:
+      - source: privacy.md
+
+  - id: q09_performance_and_incident
+    query: "What are our retrieval performance targets and where did they break?"
+    relevant:
+      - source: performance_slo.md
+      - source: postmortem_ingest.md
+
+  - id: q10_onboarding_buddy
+    query: "Who is the onboarding buddy for the new hire?"
+    relevant:
+      - source: team_sync.md
+        contains: "onboarding"
+
+  - id: q11_index_size_growth
+    query: "How large does the index get as the corpus grows?"
+    relevant:
+      - source: capacity_planning.md
+
+  - id: q12_local_vs_cloud_differentiator
+    query: "How is UPII different from cloud-first note apps?"
+    relevant:
+      - source: competitor_scan.md

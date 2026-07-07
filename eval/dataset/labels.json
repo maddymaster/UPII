@@ -1,0 +1,96 @@
+{
+  "corpus_fingerprint": "a4de370587139e63b2dcbed59ea9043092bb276e911a8294c4fea83debb4569d",
+  "n_docs": 22,
+  "n_chunks": 22,
+  "chunker": {
+    "size": 1000,
+    "overlap": 200
+  },
+  "queries": [
+    {
+      "id": "q01_omega_embedding_model",
+      "query": "Which embedding model did we choose for Project Omega and why?",
+      "relevant_chunk_ids": [
+        "43383dfeacf48a34faffbdc25958a1b0bb4a570bfe231f84ef25555016b4c098"
+      ]
+    },
+    {
+      "id": "q02_retrieval_latency_target",
+      "query": "What is the p95 latency target for context retrieval?",
+      "relevant_chunk_ids": [
+        "c013b760c067404ecead5818c5f97dc57c4646109b32561fdfffe3d4e4548c7d"
+      ]
+    },
+    {
+      "id": "q03_memory_leak_fix",
+      "query": "Who fixed the memory leak in the file watcher?",
+      "relevant_chunk_ids": [
+        "625366bdc2e8823e151db806bc713a6c92aec819a6e9bd26d23a0e793a2126f6"
+      ]
+    },
+    {
+      "id": "q04_offsite_budget",
+      "query": "How much money is budgeted for the team offsite?",
+      "relevant_chunk_ids": [
+        "8d33ecb73972eed97db5de64aa1265369fe60f2f236c75dd396cd018e6b4453e"
+      ]
+    },
+    {
+      "id": "q05_local_vector_store",
+      "query": "Which vector database do we use locally?",
+      "relevant_chunk_ids": [
+        "8b2a3e840849aa031c81efeaa0766921f52c0f448046a3171b9a9920d15b9d43"
+      ]
+    },
+    {
+      "id": "q06_duplicate_vectors_postmortem",
+      "query": "What caused the duplicate vectors bug on re-ingest and how was it fixed?",
+      "relevant_chunk_ids": [
+        "9381ad1b07a1f7bf0d41cebe46a1b79d844146c4fe21a3f84511f0ac4ae8768a"
+      ]
+    },
+    {
+      "id": "q07_q3_roadmap",
+      "query": "What are the top priorities on the Q3 roadmap?",
+      "relevant_chunk_ids": [
+        "933fe21a4a0205d70a78faf84ddf020f48386c3a4a6789b0e0158f7fd3c16572"
+      ]
+    },
+    {
+      "id": "q08_data_privacy",
+      "query": "Does UPII upload my documents to the cloud?",
+      "relevant_chunk_ids": [
+        "f580cc675a2aa88a35d53e8e79cf41cbc3bb379bbce14c59fc2d0876d2af3263"
+      ]
+    },
+    {
+      "id": "q09_performance_and_incident",
+      "query": "What are our retrieval performance targets and where did they break?",
+      "relevant_chunk_ids": [
+        "c013b760c067404ecead5818c5f97dc57c4646109b32561fdfffe3d4e4548c7d",
+        "9381ad1b07a1f7bf0d41cebe46a1b79d844146c4fe21a3f84511f0ac4ae8768a"
+      ]
+    },
+    {
+      "id": "q10_onboarding_buddy",
+      "query": "Who is the onboarding buddy for the new hire?",
+      "relevant_chunk_ids": [
+        "625366bdc2e8823e151db806bc713a6c92aec819a6e9bd26d23a0e793a2126f6"
+      ]
+    },
+    {
+      "id": "q11_index_size_growth",
+      "query": "How large does the index get as the corpus grows?",
+      "relevant_chunk_ids": [
+        "7fe1b1c259979cd3614fccedf2783f7583e540c1680122a8ffc37fdaaf998da5"
+      ]
+    },
+    {
+      "id": "q12_local_vs_cloud_differentiator",
+      "query": "How is UPII different from cloud-first note apps?",
+      "relevant_chunk_ids": [
+        "e8292a0c145858657da63d019455d66ed1ed535bd0358a67c0e0567e5eba547c"
+      ]
+    }
+  ]
+}

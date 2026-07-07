@@ -34,3 +34,6 @@ sources.yaml
 
 # Phase 2 demo scratch dir (repro_demo.sh cleans this up; ignore if it crashes mid-run)
 .repro_demo/
+
+# Phase 3 eval: isolated index rebuilt from the committed corpus (labels.json is committed)
+eval/.index/
