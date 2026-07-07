@@ -1,0 +1,198 @@
+{
+  "corpus_fingerprint": "a4de370587139e63b2dcbed59ea9043092bb276e911a8294c4fea83debb4569d",
+  "n_queries_total": 12,
+  "n_queries_scored": 12,
+  "target_recall@10": 0.85,
+  "passed": true,
+  "aggregate": {
+    "recall": {
+      "1": 0.8333333333333334,
+      "5": 0.9583333333333334,
+      "10": 0.9583333333333334
+    },
+    "mrr": 0.9166666666666666,
+    "ndcg@10": 0.9181485467338333
+  },
+  "per_query": [
+    {
+      "id": "q01_omega_embedding_model",
+      "query": "Which embedding model did we choose for Project Omega and why?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q02_retrieval_latency_target",
+      "query": "What is the p95 latency target for context retrieval?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q03_memory_leak_fix",
+      "query": "Who fixed the memory leak in the file watcher?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q04_offsite_budget",
+      "query": "How much money is budgeted for the team offsite?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q05_local_vector_store",
+      "query": "Which vector database do we use locally?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q06_duplicate_vectors_postmortem",
+      "query": "What caused the duplicate vectors bug on re-ingest and how was it fixed?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q07_q3_roadmap",
+      "query": "What are the top priorities on the Q3 roadmap?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q08_data_privacy",
+      "query": "Does UPII upload my documents to the cloud?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q09_performance_and_incident",
+      "query": "What are our retrieval performance targets and where did they break?",
+      "scorable": true,
+      "n_relevant": 2,
+      "n_retrieved": 10,
+      "first_relevant_rank": 2,
+      "recall": {
+        "1": 0.0,
+        "5": 0.5,
+        "10": 0.5
+      },
+      "mrr": 0.5,
+      "ndcg@10": 0.38685280723454163
+    },
+    {
+      "id": "q10_onboarding_buddy",
+      "query": "Who is the onboarding buddy for the new hire?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 2,
+      "recall": {
+        "1": 0.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 0.5,
+      "ndcg@10": 0.6309297535714575
+    },
+    {
+      "id": "q11_index_size_growth",
+      "query": "How large does the index get as the corpus grows?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    },
+    {
+      "id": "q12_local_vs_cloud_differentiator",
+      "query": "How is UPII different from cloud-first note apps?",
+      "scorable": true,
+      "n_relevant": 1,
+      "n_retrieved": 10,
+      "first_relevant_rank": 1,
+      "recall": {
+        "1": 1.0,
+        "5": 1.0,
+        "10": 1.0
+      },
+      "mrr": 1.0,
+      "ndcg@10": 1.0
+    }
+  ]
+}
