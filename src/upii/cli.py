@@ -2,15 +2,60 @@ import typer
 import uuid
 import logging
 import os
+from typing import Optional
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 from upii.core.config import config
-from upii.core.types import Document
+from upii.core.types import Document, RankedChunk
 
 logger = logging.getLogger("upii.cli")
 
 app = typer.Typer()
 console = Console()
+
+
+def _print_fusion_debug(results, weights: Optional[dict]) -> None:
+    """Render the per-signal fusion breakdown for `upii ask --debug`.
+
+    Shows, for each retrieved chunk, the fused score and how much each signal
+    (semantic / temporal / relational) contributed to it, so it's obvious *why* a
+    chunk ranked where it did.
+    """
+    from upii.analysis.rehydration import SIGNALS
+
+    w = config.fusion_weights()
+    if weights:
+        w.update({k: v for k, v in weights.items() if v is not None})
+
+    console.print("\n[bold cyan]Fusion Ranking Analysis[/bold cyan]")
+    console.print(
+        "[dim]weights: " + ", ".join(f"{s}={w[s]:g}" for s in SIGNALS) + "[/dim]"
+    )
+
+    table = Table(show_lines=False)
+    table.add_column("#", style="dim", justify="right")
+    table.add_column("Fused", style="bold", justify="right")
+    for s in SIGNALS:
+        table.add_column(s.capitalize(), justify="right")
+    table.add_column("Dominant", style="green")
+    table.add_column("Chunk", style="italic", no_wrap=True)
+
+    for i, r in enumerate(results):
+        if not isinstance(r, RankedChunk):
+            table.add_row(str(i + 1), "N/A", "-", "-", "-", "-", (r.text or "")[:50])
+            continue
+        cells = [str(i + 1), f"{r.score:.3f}"]
+        for s in SIGNALS:
+            sig = r.signals.get(s, 0.0)
+            contrib = r.contributions.get(s, 0.0)
+            # "signal→contribution": raw normalised score and its weighted share.
+            cells.append(f"{sig:.2f}→{contrib:.2f}" if sig else "·")
+        cells.append(r.source_signal)
+        cells.append(" ".join((r.text or "").split())[:50])
+        table.add_row(*cells)
+
+    console.print(table)
 
 @app.callback()
 def main(debug: bool = typer.Option(False, "--debug", help="Enable debug logging")):
@@ -153,25 +198,32 @@ def search(query: str, limit: int = 5, time: str = typer.Option(None, help="Time
         console.print(f"[red]Search failed: {e}[/red]")
 
 @app.command()
-def ask(question: str, debug: bool = typer.Option(False, "--debug", help="Show scoring details")):
-    """Ask a question using local context."""
+def ask(
+    question: str,
+    debug: bool = typer.Option(False, "--debug", help="Show per-signal fusion scoring"),
+    w_semantic: Optional[float] = typer.Option(None, "--w-semantic", help="Override semantic fusion weight"),
+    w_temporal: Optional[float] = typer.Option(None, "--w-temporal", help="Override temporal fusion weight"),
+    w_relational: Optional[float] = typer.Option(None, "--w-relational", help="Override relational fusion weight"),
+):
+    """Ask a question using local context (v2 semantic+temporal+relational fusion)."""
     from upii.analysis.search import SearchEngine
     from upii.analysis.llm import LocalLLM
     from upii.core.types import RankedChunk
-    
+
     console.print(f"[bold magenta]Asking:[/bold magenta] {question}")
-    
+
+    # Per-call weight overrides (None -> fall back to config).
+    weights = {"semantic": w_semantic, "temporal": w_temporal, "relational": w_relational}
+    weights = {k: v for k, v in weights.items() if v is not None} or None
+
     # 1. Retrieval
     search_engine = SearchEngine()
     try:
         # We search with a slightly higher limit to filter
-        results = search_engine.search(question, limit=config.rag_max_chunks)
-        
+        results = search_engine.search(question, limit=config.rag_max_chunks, weights=weights)
+
         if debug:
-             console.print("\n[bold cyan]Context Ranking Analysis:[/bold cyan]")
-             for i, r in enumerate(results):
-                 score_info = f"Score: {r.score:.2f} ({r.boost_reason})" if isinstance(r, RankedChunk) else "Score: N/A"
-                 console.print(f"{i+1}. [green]{r.source_signal}[/green] | {score_info} | {r.text[:60]}...")
+            _print_fusion_debug(results, weights)
 
     except Exception as e:
         console.print(f"[red]Retrieval failed: {e}[/red]")

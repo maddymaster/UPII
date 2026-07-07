@@ -25,9 +25,14 @@ class Chunk:
 
 @dataclass
 class RankedChunk(Chunk):
-    score: float = 0.0
+    score: float = 0.0                # fused score = sum(contributions)
     boost_reason: str = ""
-    source_signal: str = "vector" # vector, calendar, entity
+    source_signal: str = "vector"     # dominant signal: semantic, temporal, relational
+    # v2 fusion breakdown (populated by ContextRehydrator):
+    #   signals       -> normalised [0,1] per-signal score
+    #   contributions -> weight * signal, i.e. each signal's share of `score`
+    signals: Dict[str, float] = field(default_factory=dict)
+    contributions: Dict[str, float] = field(default_factory=dict)
 
 @dataclass
 class Task:

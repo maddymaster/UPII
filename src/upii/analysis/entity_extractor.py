@@ -53,16 +53,25 @@ class EntityExtractor:
 
         # 2. Topic/Person Extraction (Medium Confidence)
         # Only if strict chaining is found
+        # Trigger words that introduce a PROJECT/TEAM; a TOPIC match that merely
+        # restates one (e.g. "Project Omega", "Team Alpha") is a duplicate of the
+        # PROJECT entity already captured, so skip it rather than add noise.
+        _project_triggers = ("project", "operation", "code name", "codename", "team", "squad")
+
         for pattern in self.patterns["TOPIC"]:
             for match in pattern.finditer(text):
                 name = match.group(1)
                 # Filter out likely common phrases or start of sentences if needed
                 # For now, accept all multi-word capitalized sequences
-                
+
+                # Skip phrases that just re-state a PROJECT/TEAM trigger.
+                if name.lower().startswith(_project_triggers):
+                    continue
+
                 # Check it's not already found as a Project
                 if (name, "PROJECT") in seen:
                     continue
-                    
+
                 key = (name, "TOPIC")
                 if key not in seen:
                     entities.append(Entity(

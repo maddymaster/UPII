@@ -6,10 +6,13 @@ from upii.core.config import config
 
 @pytest.fixture
 def temporal_env(tmp_path):
-    # Setup test DB
-    db_path = tmp_path / "upii_test.db"
-    config.db_path = str(db_path)
-    
+    # Isolate BOTH the metadata DB and the vector store so the test doesn't read
+    # the developer's real corpus (which would flood out the calendar event under
+    # v2 fusion). With an empty vector store, the temporal signal is what surfaces
+    # the seeded event — exactly what these tests assert.
+    config.db_path = str(tmp_path / "upii_test.db")
+    config.vector_store_path = str(tmp_path / "vectors")
+
     # Init DB
     db = DB()
     db.init_db()

@@ -442,23 +442,54 @@ class DB:
         conn.row_factory = sqlite3.Row
         try:
             cur = conn.cursor()
-            # Find entity ID first (could join, but this is cleaner for fuzzy logic later)
+            # Resolve the entity id. The extractor yields bare names ("Omega",
+            # "Secret") while the graph often stores fuller names ("Project Omega",
+            # "Project Secret"), so fall back to a substring match when the exact
+            # name misses — otherwise the relational signal never fires in practice.
             cur.execute("SELECT entity_id FROM entities WHERE name = ?", (entity_name,))
             rows = cur.fetchall()
+            if not rows and entity_name:
+                cur.execute(
+                    "SELECT entity_id FROM entities WHERE name LIKE ?",
+                    (f"%{entity_name}%",),
+                )
+                rows = cur.fetchall()
             if not rows:
                 return []
             
             entity_ids = [row['entity_id'] for row in rows]
             placeholders = ','.join('?' for _ in entity_ids)
             
+            # LEFT JOIN so an edge is returned even when its chunk row is absent
+            # (e.g. the source was removed, or the edge points at synthetic text).
+            # Fall back to the edge's own stored ``context`` for the text, and to
+            # ``source_doc_id`` for the doc, so the relational signal never silently
+            # loses an edge to an INNER JOIN.
             query = f"""
-                SELECT e.chunk_hash, e.context, c.text, c.doc_id
+                SELECT e.chunk_hash,
+                       e.context,
+                       e.source_doc_id,
+                       e.confidence,
+                       c.text AS chunk_text,
+                       c.doc_id AS chunk_doc_id
                 FROM entity_edges e
-                JOIN chunks c ON e.chunk_hash = c.chunk_id
+                LEFT JOIN chunks c ON e.chunk_hash = c.chunk_id
                 WHERE e.entity_id IN ({placeholders})
             """
             cur.execute(query, entity_ids)
-            return [dict(row) for row in cur.fetchall()]
+            rows = []
+            for row in cur.fetchall():
+                d = dict(row)
+                rows.append(
+                    {
+                        "chunk_hash": d["chunk_hash"],
+                        "context": d["context"],
+                        "text": d["chunk_text"] if d["chunk_text"] is not None else d["context"],
+                        "doc_id": d["chunk_doc_id"] if d["chunk_doc_id"] is not None else d["source_doc_id"],
+                        "confidence": d["confidence"] if d["confidence"] is not None else 1.0,
+                    }
+                )
+            return rows
         finally:
             conn.close()
 

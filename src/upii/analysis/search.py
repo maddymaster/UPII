@@ -14,10 +14,18 @@ class SearchEngine:
         self.db.init_db()
 
 
-    def search(self, query: str, time_filter: Optional[str] = None, limit: int = 5) -> List[Chunk]:
+    def search(
+        self,
+        query: str,
+        time_filter: Optional[str] = None,
+        limit: int = 5,
+        weights: Optional[Dict[str, float]] = None,
+    ) -> List[Chunk]:
         """
-        Unified search via ContextRehydrator.
-        Returns RankChunks which are compatible with Chunks.
+        Unified search via the v2 fusion ContextRehydrator.
+
+        Returns RankedChunks (compatible with Chunk). ``weights`` optionally
+        overrides the configured fusion weights for this call.
         """
         # Metric Tracking
         try:
@@ -28,4 +36,4 @@ class SearchEngine:
 
         from upii.analysis.rehydration import ContextRehydrator
         rehydrator = ContextRehydrator()
-        return rehydrator.rehydrate(query, time_filter, limit)
+        return rehydrator.rehydrate(query, time_filter, limit, weights=weights)
