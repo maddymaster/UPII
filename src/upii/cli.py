@@ -586,12 +586,30 @@ def inbox(
 
 @app.command()
 def knowledge(
-    action: str = typer.Argument(..., help="Action: wipe"),
+    action: str = typer.Argument("show", help="Action: wipe, show"),
+    graph: bool = typer.Option(False, "--graph", help="Render the knowledge graph to a self-contained HTML file"),
+    out: str = typer.Option("graph.html", "--out", help="Output path for --graph HTML"),
 ):
-    """Manage Knowledge Graph entities."""
+    """Manage / visualise Knowledge Graph entities."""
+    from upii.storage.db import DB
+
+    if graph:
+        from upii.analysis.graph import write_graph
+
+        db = DB()
+        db.init_db()
+        data = write_graph(out, db=db)
+        n, e = len(data["nodes"]), len(data["links"])
+        console.print(
+            f"[green]Rendered knowledge graph[/green] to [bold]{out}[/bold] "
+            f"[dim]({n} entities, {e} co-occurrence edges)[/dim]"
+        )
+        if n == 0:
+            console.print("[yellow]Graph is empty — ingest documents to populate entities.[/yellow]")
+        return
+
     if action == "wipe":
         if typer.confirm("Are you sure you want to delete ALL entities? This cannot be undone."):
-            from upii.storage.db import DB
             db = DB()
             db.init_db()
             db.wipe_entities()

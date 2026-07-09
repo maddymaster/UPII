@@ -37,3 +37,33 @@ sources.yaml
 
 # Phase 3 eval: isolated index rebuilt from the committed corpus (labels.json is committed)
 eval/.index/
+
+# ---------------------------------------------------------------------------
+# Internal / not-for-open-source docs
+# Grant, investor, strategy, patent, and internal build-planning material that
+# should not ship in a public open-source repo. Technical docs (docs/data_model,
+# design_blueprint, packaging, qa_plan, REPORTs) and test fixtures are kept.
+# NOTE: files already committed stay tracked until `git rm --cached <path>`.
+# ---------------------------------------------------------------------------
+
+# Grant programme (tranche plans, patent, milestone/build prompts)
+ELEVATE_Nxt_Grant/
+
+# Internal working-doc set (superseded duplicates of docs/, plus investor/release-manager notes)
+project_docs/
+
+# AI build prompts / internal engineering scripts
+CLAUDE_CODE_PROMPTS_*.md
+
+# Business strategy, GTM, product-requirements
+STRATEGY_grant_and_gtm.md
+UPII_PRD.md
+
+# Grant/investor/status walkthroughs, jury & demo scripts
+docs/grant_officer_demo_walkthrough.md
+docs/walkthrough*.md
+docs/jury_progress_demo.md
+docs/demo_script.md
+
+# Business-specific demo data (real-sounding partner/meeting notes)
+demo_data_v2/
