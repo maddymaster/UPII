@@ -493,6 +493,57 @@ class DB:
         finally:
             conn.close()
 
+    def get_entities(self) -> List[Dict[str, Any]]:
+        """Return every entity as ``{entity_id, name, category, degree}``.
+
+        ``degree`` is the number of chunk edges anchored to the entity — used to
+        size nodes in the knowledge-graph visualisation.
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT e.entity_id, e.name, e.category,
+                       COUNT(ed.edge_id) AS degree
+                FROM entities e
+                LEFT JOIN entity_edges ed ON ed.entity_id = e.entity_id
+                GROUP BY e.entity_id, e.name, e.category
+                ORDER BY e.category, e.name
+                """
+            )
+            return [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def get_cooccurrence_edges(self) -> List[Dict[str, Any]]:
+        """Return entity-entity co-occurrence edges as ``{source, target, weight}``.
+
+        Two entities co-occur when their edges point at the same ``chunk_hash``;
+        the ``weight`` is the number of distinct chunks in which both appear. Only
+        unordered pairs (``source < target``) are returned so each edge is unique.
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT a.entity_id AS source,
+                       b.entity_id AS target,
+                       COUNT(DISTINCT a.chunk_hash) AS weight
+                FROM entity_edges a
+                JOIN entity_edges b
+                  ON a.chunk_hash = b.chunk_hash
+                 AND a.entity_id < b.entity_id
+                GROUP BY a.entity_id, b.entity_id
+                """
+            )
+            return [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
     def wipe_entities(self):
         """Clear all entity data (Reversible action)."""
         conn = self.get_connection()
