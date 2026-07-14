@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research &amp; Benchmarks — Smritium</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  .paper { max-width: 780px; margin: 0 auto; }
+  .paper h2 { margin: 56px 0 16px; }
+  .paper p { color: var(--ink-soft); margin-bottom: 16px; }
+  .bench { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 26px; margin: 20px 0; }
+  .bench h3 { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .bench .metric { font-family: var(--font-mono); font-size: .88rem; color: var(--indigo); }
+  .timeline { border-left: 2px solid var(--line); margin: 24px 0 24px 8px; padding-left: 28px; }
+  .tl-item { position: relative; padding-bottom: 26px; }
+  .tl-item::before { content: ""; position: absolute; left: -35px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--indigo); border: 3px solid var(--paper); }
+  .tl-item.done::before { background: var(--ok); }
+  .tl-item .when { font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="nav-logo" href="index.html"><img src="assets/logo.svg" alt="Smritium"></a>
+    <div class="nav-links">
+      <a href="index.html#product">Product</a>
+      <a href="index.html#pricing">Pricing</a>
+      <a href="research.html" class="active">Research</a>
+      <a href="docs.html">Docs</a>
+      <a href="changelog.html">Changelog</a>
+      <a class="btn btn-primary btn-sm" href="onboarding.html">Get started</a>
+    </div>
+  </div>
+</nav>
+
+<section>
+  <div class="container paper">
+    <p class="eyebrow">Research</p>
+    <h1 style="font-size:2.6rem;">Sovereign memory, measured.</h1>
+    <p class="lead" style="margin-top:16px;">Smritium began as UPII — the Unified Personal Intelligence Interface — a research effort asking one question: <em>what is the minimum architecture that delivers cloud-grade recall while the substrate never leaves the edge?</em> We publish our benchmarks, evals, and reproducibility audits so you can verify, not trust.</p>
+
+    <h2>Benchmarks</h2>
+    <p>All numbers are produced by open harnesses in the repository (<code class="inline">scripts/bench/</code>, <code class="inline">eval/</code>) on consumer hardware, with reports committed as artifacts. Headline results will be published here with each release.</p>
+
+    <div class="bench">
+      <h3>Reproducibility audit <span class="pill ok">PUBLISHED</span></h3>
+      <p class="muted">Deterministic chunking guarantee: chunk boundaries and hashes are a pure function of content and config.</p>
+      <p class="metric">independent re-ingest → 100% of chunk hashes reproduced · shuffled file order → identical memory state</p>
+    </div>
+    <div class="bench">
+      <h3>Retrieval quality <span class="pill">IN PROGRESS</span></h3>
+      <p class="muted">Labelled eval set scoring Recall@k, MRR, and nDCG. The headline metric is the <strong>fusion delta</strong>: multi-signal rehydration (semantic + temporal + relational) vs semantic-only baseline.</p>
+      <p class="metric">eval/run_eval.py · results committed as eval/results/REPORT.md</p>
+    </div>
+    <div class="bench">
+      <h3>Ingestion &amp; latency <span class="pill">IN PROGRESS</span></h3>
+      <p class="muted">Deterministic synthetic corpus; ingestion throughput (docs/min) and retrieval latency (p50/p90/p99) on consumer Apple-silicon hardware.</p>
+      <p class="metric">scripts/bench/benchmark.py · bench/results/REPORT.md</p>
+    </div>
+    <div class="bench">
+      <h3>Citation accuracy <span class="pill">PLANNED</span></h3>
+      <p class="muted">Do cited chunks actually support the generated claim? Includes the abstention guardrail: at low retrieval confidence, Smritium declines rather than fabricates.</p>
+      <p class="metric">eval/run_citation_eval.py · citation_REPORT.md</p>
+    </div>
+
+    <h2 id="grant">The ELEVATE Nxt grant</h2>
+    <p>Smritium's research substrate (UPII) is developed by <strong>DataFrontier Innovations Pvt Ltd</strong> with support from the <strong>ELEVATE Nxt programme, Government of Karnataka</strong> — the state's flagship startup grant, administered under the Karnataka Startup Policy through KITS.</p>
+    <p>The grant funds the science: benchmark infrastructure, retrieval-quality evaluation, deterministic-ingestion hardening, consent-gated ambient connectors, attributed synthesis with verification, cross-platform signed releases, local-network multi-device sync, and a design-partner pilot. Milestone completion reports and demonstration artifacts are produced for each tranche.</p>
+    <div class="timeline">
+      <div class="tl-item done"><div class="when">Tranche 1 · Months 1–6</div><strong>Foundations &amp; proof</strong><p class="muted">Performance baselines, chunk-determinism verification, Context Rehydrator eval baseline, local knowledge-graph extraction, provisional patent filing.</p></div>
+      <div class="tl-item"><div class="when">Tranche 2 · Months 7–12</div><strong>Product &amp; pilot</strong><p class="muted">Hardened ambient connectors, citation-accuracy eval + abstention, signed v1.0 installers (macOS/Windows/Linux), LAN multi-device sync, 5–10 user design-partner pilot.</p></div>
+      <div class="tl-item"><div class="when">Beyond</div><strong>The moat</strong><p class="muted">MCP memory bridge, the Membrane (egress audit + redaction), enterprise compliance offering.</p></div>
+    </div>
+
+    <h2>Patent</h2>
+    <p>A provisional patent application covers sovereign multi-signal context rehydration, attributed on-device memory, and the selective-disclosure egress membrane. <span class="muted">(Patent pending.)</span></p>
+
+    <h2 id="about">About DataFrontier</h2>
+    <p><strong>DataFrontier Innovations Pvt Ltd</strong> is a Bengaluru-based deep-tech company building sovereign AI infrastructure. Smritium — from Sanskrit <em>smṛti</em> (स्मृति), "that which is remembered" — is its first product: the memory layer for an era where personal and organisational context should never have to leave the machine that owns it.</p>
+    <p>Contact: <a href="mailto:hello@smritium.ai">hello@smritium.ai</a></p>
+  </div>
+</section>
+
+<footer>
+  <div class="container foot-note" style="border-top:none; margin-top:0; padding-top:0;">
+    <span>© 2026 DataFrontier Innovations Pvt Ltd · Backed by ELEVATE Nxt, Govt. of Karnataka</span>
+    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+</body>
+</html>

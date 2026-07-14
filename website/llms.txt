@@ -1,0 +1,45 @@
+# Smritium
+
+> Smritium is the sovereign memory layer for AI: a local-first, privacy-preserving
+> memory substrate that captures documents, notes, mail, and calendar and turns them
+> into cited, verifiable recall. The entire memory loop — capture, embedding,
+> retrieval, reasoning — runs on the user's machine. Cloud models are optional,
+> swappable accelerators, never dependencies. From Sanskrit smṛti (स्मृति),
+> "that which is remembered." Built by DataFrontier Innovations Pvt Ltd (Bengaluru,
+> India) with support from the ELEVATE Nxt programme, Government of Karnataka.
+
+Key facts:
+- Local-first by construction: embeddings computed on-device (sentence-transformers),
+  vectors in LanceDB on disk, metadata in local SQLite. Zero corpus bytes required
+  to leave the device.
+- Verifiable memory: content-addressed chunks; deterministic chunking means an
+  independent re-ingest reproduces 100% of chunk hashes; every answer cites its
+  source chunk IDs; low-confidence abstention instead of fabricated citations.
+- Context Rehydrator: retrieval fuses semantic, temporal, and relational signals
+  into one ranked context window.
+- Consent-gated ambient capture: filesystem/mail/calendar events route through an
+  approval inbox before entering durable memory.
+- Graceful degradation: works fully offline; pluggable inference (Ollama local,
+  optional remote, mock).
+- Enterprise "Membrane": PII redaction, approval-gated egress, tamper-evident
+  egress audit log — for regulated buyers (legal, finance, healthcare, government).
+- MCP bridge (coming soon): smritium_search, smritium_ask, smritium_list_sources —
+  agents get cited, approval-scoped answers; the corpus never leaves the device.
+- Pricing: free open core; Pro $15/mo (multi-device LAN/P2P sync, connectors,
+  Cmd+K overlay, MCP bridge); Enterprise custom (Membrane, on-prem, compliance).
+
+## Pages
+
+- [Home](https://smritium.ai/index.html): product overview, comparison, pricing, FAQ
+- [Onboarding](https://smritium.ai/onboarding.html): install and setup flow
+- [Documentation](https://smritium.ai/docs.html): CLI reference, concepts, MCP
+- [Research](https://smritium.ai/research.html): benchmarks, reproducibility audit,
+  ELEVATE Nxt grant, patent
+- [Changelog](https://smritium.ai/changelog.html): release notes
+- [Privacy](https://smritium.ai/privacy.html)
+- [Terms](https://smritium.ai/terms.html)
+
+## Contact
+
+- hello@smritium.ai
+- DataFrontier Innovations Pvt Ltd, Bengaluru, Karnataka, India
