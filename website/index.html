@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smritium — The sovereign memory layer for AI</title>
+<meta name="description" content="Smritium is a local-first, privacy-preserving memory substrate for AI. Capture, embed, retrieve, and reason over your knowledge — entirely on your machine. AI that knows your context and keeps your secrets.">
+<meta property="og:title" content="Smritium — The sovereign memory layer for AI">
+<meta property="og:description" content="AI that knows your context and keeps your secrets. Local-first memory with verifiable citations. Unplug the internet — it still works.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  /* page-specific */
+  .hero { padding: 96px 0 72px; position: relative; overflow: hidden; }
+  .hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: center; }
+  .trust-bar { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 34px; align-items: center; color: var(--muted); font-size: .85rem; }
+  .trust-bar strong { color: var(--ink-soft); }
+  .hero-visual { position: relative; }
+  .demo-window {
+    background: var(--code-bg); border-radius: 16px; box-shadow: var(--shadow-lg);
+    overflow: hidden; font-family: var(--font-mono); font-size: .82rem;
+  }
+  .demo-titlebar { display: flex; gap: 7px; padding: 13px 16px; background: rgba(255,255,255,.05); }
+  .demo-titlebar span { width: 11px; height: 11px; border-radius: 50%; background: rgba(255,255,255,.18); }
+  .demo-body { padding: 20px 22px 26px; color: var(--code-ink); line-height: 1.85; min-height: 285px; }
+  .demo-body .prompt { color: #FFB48A; }
+  .demo-body .cite { color: #A8E5C4; }
+  .demo-body .dim { color: #8B89B0; }
+  .offline-chip {
+    position: absolute; top: -14px; right: -10px;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: .78rem;
+    padding: 8px 14px; border-radius: 999px; box-shadow: var(--shadow);
+    font-family: var(--font-sans);
+  }
+  .offline-chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #fff; margin-right: 6px; animation: pulse-dot 1.6s infinite; }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .stat { text-align: center; padding: 26px 12px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+  .stat .num { font-family: var(--font-serif); font-size: 2rem; font-weight: 700; color: var(--ink); }
+  .stat .lbl { font-size: .84rem; color: var(--muted); margin-top: 4px; }
+  .fusion { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .signal-stack { display: flex; flex-direction: column; gap: 14px; }
+  .signal {
+    display: flex; gap: 16px; align-items: flex-start; background: #fff;
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 22px;
+  }
+  .signal .s-icon { flex: none; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+  .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; align-items: stretch; }
+  .price-card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 34px 30px; display: flex; flex-direction: column; position: relative; }
+  .price-card.featured { border: 2px solid var(--ink); box-shadow: var(--shadow-lg); }
+  .price-card .tier { font-size: .82rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .price-card .amount { font-family: var(--font-serif); font-size: 2.6rem; font-weight: 700; margin: 12px 0 2px; }
+  .price-card .per { color: var(--muted); font-size: .88rem; margin-bottom: 20px; }
+  .price-card ul { list-style: none; margin: 0 0 26px; flex: 1; }
+  .price-card li { padding: 7px 0 7px 26px; position: relative; font-size: .94rem; color: var(--ink-soft); }
+  .price-card li::before { content: "✓"; position: absolute; left: 0; color: var(--ok); font-weight: 700; }
+  .flag { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; font-size: .75rem; font-weight: 700; padding: 5px 14px; border-radius: 999px; white-space: nowrap; }
+  .faq details { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 24px; margin-bottom: 12px; }
+  .faq summary { font-weight: 600; cursor: pointer; font-size: 1.02rem; }
+  .faq details p { margin-top: 12px; color: var(--ink-soft); }
+  .cta-band { background: var(--ink); color: #fff; border-radius: 22px; padding: 64px 48px; text-align: center; }
+  .cta-band h2 { color: #fff; }
+  .cta-band p { color: rgba(255,255,255,.75); max-width: 560px; margin: 14px auto 30px; }
+  @media (max-width: 900px) {
+    .hero-grid, .fusion { grid-template-columns: 1fr; }
+    .stat-row { grid-template-columns: 1fr 1fr; }
+    .price-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="nav-logo" href="index.html"><img src="assets/logo.svg" alt="Smritium"></a>
+    <div class="nav-links">
+      <a href="index.html#product">Product</a>
+      <a href="index.html#membrane">Membrane</a>
+      <a href="index.html#pricing">Pricing</a>
+      <a href="research.html">Research</a>
+      <a href="docs.html">Docs</a>
+      <a href="changelog.html">Changelog</a>
+      <a class="btn btn-primary btn-sm" href="onboarding.html">Get started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="container hero-grid">
+    <div>
+      <span class="pill rise"><span class="dot"></span>Local-first · Open core · Patent pending</span>
+      <h1 class="rise d1" style="margin-top:22px;">AI that knows your context and <em>keeps your secrets.</em></h1>
+      <p class="lead rise d2" style="margin-top:20px;">
+        Smritium is the sovereign memory layer for AI — it captures your documents, notes, mail, and calendar,
+        and turns them into cited, verifiable recall. The entire memory loop runs on your machine.
+        <strong>Unplug the internet — it still works.</strong>
+      </p>
+      <div class="rise d3" style="margin-top:32px; display:flex; gap:14px; flex-wrap:wrap;">
+        <a class="btn btn-primary" href="onboarding.html">Install Smritium →</a>
+        <a class="btn btn-ghost" href="docs.html">Read the docs</a>
+      </div>
+      <div class="trust-bar rise d4">
+        <span>✓ <strong>Zero</strong> corpus bytes leave your device</span>
+        <span>✓ Every answer <strong>cites its source</strong></span>
+        <span>✓ Works <strong>fully offline</strong></span>
+      </div>
+    </div>
+    <div class="hero-visual rise d2">
+      <div class="offline-chip"><span class="dot"></span>OFFLINE</div>
+      <div class="demo-window">
+        <div class="demo-titlebar"><span></span><span></span><span></span></div>
+        <div class="demo-body" id="terminal-demo"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ STATS ============ -->
+<div class="container section-tight">
+  <div class="stat-row reveal">
+    <div class="stat"><div class="num">100%</div><div class="lbl">chunk hashes reproducible on re-ingest</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">cloud dependencies required to answer</div></div>
+    <div class="stat"><div class="num">3</div><div class="lbl">fused retrieval signals per query</div></div>
+    <div class="stat"><div class="num">∞</div><div class="lbl">your data, yours, forever</div></div>
+  </div>
+</div>
+
+<!-- ============ WHY / INVERSION ============ -->
+<section id="product">
+  <div class="container">
+    <p class="eyebrow reveal">Why Smritium</p>
+    <h2 class="reveal" style="max-width:720px;">Cloud memory products rent your own mind back to you. Smritium inverts the architecture.</h2>
+    <p class="lead reveal" style="max-width:720px; margin-top:16px;">
+      Mainstream memory APIs externalize your corpus to a provider, embed it remotely, and meter your recall by the token.
+      Smritium keeps capture, embedding, retrieval, and reasoning on-device — and treats any cloud model as an
+      optional, swappable accelerator, never a dependency.
+    </p>
+    <div class="grid grid-3" style="margin-top:48px;">
+      <div class="card reveal">
+        <div class="icon">⌂</div>
+        <h3>Sovereign by construction</h3>
+        <p>Embeddings computed locally. Vectors in an on-disk store. Metadata in local SQLite. No corpus byte is required to leave the device for the system to function — not as a setting, as an architecture.</p>
+      </div>
+      <div class="card reveal">
+        <div class="icon">⛓</div>
+        <h3>Verifiable memory</h3>
+        <p>Every answer is traceable to its source chunks via content-addressed identifiers. Retrieval is <em>attributed</em>, not just plausible. When confidence is low, Smritium abstains instead of hallucinating a citation.</p>
+      </div>
+      <div class="card reveal">
+        <div class="icon">◌</div>
+        <h3>Graceful degradation</h3>
+        <p>Reasoning is pluggable — local models via Ollama or an optional remote model. If inference is unavailable, the retrieval substrate still answers. No GPU, no API key, no problem.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONTEXT REHYDRATOR ============ -->
+<section style="background:var(--paper-2);">
+  <div class="container fusion">
+    <div>
+      <p class="eyebrow reveal">The Context Rehydrator</p>
+      <h2 class="reveal">Recall is a sensor-fusion problem, not a cosine distance.</h2>
+      <p class="lead reveal" style="margin-top:16px;">
+        Ranking on vector similarity alone misses how humans actually remember. Smritium fuses three
+        orthogonal signals into one ranked context window — and shows you each signal's contribution
+        with <code class="inline">smritium ask --debug</code>.
+      </p>
+    </div>
+    <div class="signal-stack">
+      <div class="signal reveal">
+        <div class="s-icon" style="background:var(--indigo-soft); color:var(--indigo);">◈</div>
+        <div><h3>Semantic</h3><p class="muted">Dense vector similarity over locally computed embeddings — what is <em>about</em> the same thing.</p></div>
+      </div>
+      <div class="signal reveal">
+        <div class="s-icon" style="background:var(--accent-soft); color:var(--accent);">◷</div>
+        <div><h3>Temporal</h3><p class="muted">Calendar- and recency-aware weighting — "what was I working on last week" is a first-class query.</p></div>
+      </div>
+      <div class="signal reveal">
+        <div class="s-icon" style="background:#E4F4EC; color:var(--ok);">⬡</div>
+        <div><h3>Relational</h3><p class="muted">A personal knowledge graph of projects, people, and organizations — what is <em>connected</em> to what.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURE GRID (Connectors / Graph / RAG / MCP / Plugins) ============ -->
+<section>
+  <div class="container">
+    <p class="eyebrow reveal">The full substrate</p>
+    <h2 class="reveal">Everything a memory layer should do. Nothing it shouldn't see.</h2>
+    <div class="grid grid-3" style="margin-top:48px;">
+      <div class="card reveal" id="connectors">
+        <div class="icon">⇄</div>
+        <h3>Connectors</h3>
+        <p>Ambient capture from approved folders, mail (.mbox/.eml), and calendar (.ics) with debouncing, dedup, and delete-handling. Capture is consent-gated: everything routes through an approval inbox before entering durable memory.</p>
+      </div>
+      <div class="card reveal" id="memory-graph">
+        <div class="icon">⬡</div>
+        <h3>Memory Graph</h3>
+        <p>Rule-based entity extraction builds a local knowledge graph of your projects, people, and organizations. Export a self-contained interactive visualization with <code class="inline">smritium knowledge --graph</code> — no cloud round-trip.</p>
+      </div>
+      <div class="card reveal" id="rag">
+        <div class="icon">❝</div>
+        <h3>Attributed RAG</h3>
+        <p>Answers in your own voice, anchored to verifiable memory. Every claim cites its chunk ID; deterministic chunking keeps those citations stable across re-ingests, edits, and re-embeddings.</p>
+      </div>
+      <div class="card reveal ember" id="mcp">
+        <div class="icon">✦</div>
+        <h3>MCP Bridge <span class="pill ember" style="margin-left:6px; font-size:.7rem;">COMING SOON</span></h3>
+        <p>Smritium as an MCP server: give Claude and other agents <code class="inline">smritium_search</code>, <code class="inline">smritium_ask</code>, and <code class="inline">smritium_list_sources</code> — returning only user-approved, cited chunks. The corpus never leaves your device. <a href="onboarding.html#waitlist">Join the waitlist →</a></p>
+      </div>
+      <div class="card reveal" id="plugins">
+        <div class="icon">⌘</div>
+        <h3>Cmd+K everywhere</h3>
+        <p>A lightweight overlay daemon puts your memory one keystroke away in any app. Twelve CLI commands — <code class="inline">doctor</code>, <code class="inline">ingest</code>, <code class="inline">ask</code>, <code class="inline">watch</code>, <code class="inline">inbox</code> and more — for people who live in the terminal.</p>
+      </div>
+      <div class="card reveal" id="ingestion">
+        <div class="icon">#</div>
+        <h3>Content-addressed ingestion</h3>
+        <p>Documents are hashed on content, not path. Re-ingesting an unchanged file is a no-op; edits are diffed at chunk level. The same inputs always yield the same memory state — idempotent, reproducible, trustworthy.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MEMBRANE (Enterprise) ============ -->
+<section id="membrane" style="background:var(--ink); color:#fff;">
+  <div class="container">
+    <div class="fusion">
+      <div>
+        <p class="eyebrow reveal">Smritium Membrane · Enterprise</p>
+        <h2 class="reveal" style="color:#fff;">The compliance layer your regulators have been asking for.</h2>
+        <p class="reveal" style="margin-top:16px; color:rgba(255,255,255,.78); font-size:1.15rem; line-height:1.6;">
+          When something <em>must</em> cross to a cloud model, the Membrane detects and redacts PII,
+          shows exactly what is about to leave, requires approval, and writes a tamper-evident egress
+          audit log. Legal, finance, healthcare, and government teams get provable data sovereignty —
+          not a policy PDF.
+        </p>
+        <div class="reveal" style="margin-top:30px;">
+          <a class="btn btn-accent" href="mailto:hello@smritium.ai?subject=Smritium%20Membrane%20—%20Enterprise">Talk to us →</a>
+        </div>
+      </div>
+      <div class="reveal">
+        <pre class="code" style="box-shadow:var(--shadow-lg);"><span class="c"># every byte that ever left the device, provable</span>
+<span class="k">$ smritium egress log</span>
+
+2026-07-12 14:03  ask#8812 → remote:gemini
+  redacted: 2 PII spans (email, phone)
+  approved: maddy · sha256:9f31…c2ea
+2026-07-09 11:47  ask#8794 → local:ollama
+  egress: none
+<span class="s">✓ audit chain verified (142 entries, 0 gaps)</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPARISON ============ -->
+<section>
+  <div class="container">
+    <p class="eyebrow reveal">Compare</p>
+    <h2 class="reveal">Cloud memory APIs vs. Smritium</h2>
+    <div class="reveal" style="margin-top:40px; overflow-x:auto;">
+      <table class="cmp">
+        <tr><th></th><th>Cloud memory APIs</th><th>Smritium</th></tr>
+        <tr><td>Where your corpus lives</td><td class="no">Provider's cloud</td><td class="yes">Your device</td></tr>
+        <tr><td>Private deployment</td><td class="no">$399+/mo tier or Enterprise-only</td><td class="yes">The default, from the first byte</td></tr>
+        <tr><td>Works offline</td><td class="no">No</td><td class="yes">Fully — retrieval and local reasoning</td></tr>
+        <tr><td>Citations</td><td class="no">Plausible recall</td><td class="yes">Content-addressed, reproducible chunk IDs</td></tr>
+        <tr><td>Pricing model</td><td class="no">Metered per token, forever</td><td class="yes">Free core · flat Pro · enterprise license</td></tr>
+        <tr><td>Egress audit &amp; PII redaction</td><td class="no">—</td><td class="yes">Membrane: approval-gated, tamper-evident log</td></tr>
+        <tr><td>Data residency (DPDP / GDPR)</td><td class="no">Contract-dependent</td><td class="yes">By construction — it never left</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section id="pricing" style="background:var(--paper-2);">
+  <div class="container">
+    <p class="eyebrow reveal" style="text-align:center;">Pricing</p>
+    <h2 class="reveal" style="text-align:center;">Own your memory. Pay for polish, not permission.</h2>
+    <div class="price-grid" style="margin-top:52px;">
+      <div class="price-card reveal">
+        <div class="tier">Core</div>
+        <div class="amount">₹0</div>
+        <div class="per">free & open core, forever</div>
+        <ul>
+          <li>Full local memory engine</li>
+          <li>Content-addressed ingestion &amp; dedup</li>
+          <li>Context Rehydrator (all 3 signals)</li>
+          <li>CLI (12 commands) + local knowledge graph</li>
+          <li>Verify-don't-trust: reproducible builds</li>
+        </ul>
+        <a class="btn btn-ghost" href="onboarding.html" style="justify-content:center;">Install free</a>
+      </div>
+      <div class="price-card featured reveal">
+        <div class="flag">MOST POPULAR</div>
+        <div class="tier">Pro</div>
+        <div class="amount">$15</div>
+        <div class="per">per month · for professionals with sensitive context</div>
+        <ul>
+          <li>Everything in Core</li>
+          <li>Multi-device sync (LAN / encrypted P2P — no cloud)</li>
+          <li>Polished mail &amp; calendar connectors</li>
+          <li>Cmd+K overlay everywhere</li>
+          <li>MCP bridge for Claude &amp; agents (coming soon)</li>
+          <li>Priority support</li>
+        </ul>
+        <a class="btn btn-primary" href="onboarding.html" style="justify-content:center;">Start with Pro</a>
+      </div>
+      <div class="price-card reveal">
+        <div class="tier">Enterprise · Membrane</div>
+        <div class="amount serif" style="font-size:2rem;">Custom</div>
+        <div class="per">for regulated teams: legal, finance, health, government</div>
+        <ul>
+          <li>Everything in Pro, org-wide</li>
+          <li>Egress audit + PII redaction membrane</li>
+          <li>On-prem / air-gapped deployment</li>
+          <li>Compliance reporting (DPDP, GDPR posture)</li>
+          <li>Admin controls &amp; security review kit</li>
+        </ul>
+        <a class="btn btn-ghost" href="mailto:hello@smritium.ai?subject=Smritium%20Enterprise" style="justify-content:center;">Contact sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RESEARCH STRIP ============ -->
+<section class="section-tight">
+  <div class="container">
+    <div class="card reveal" style="display:flex; gap:28px; align-items:center; flex-wrap:wrap; justify-content:space-between;">
+      <div style="max-width:640px;">
+        <h3>Built as research, shipped as product.</h3>
+        <p style="margin-top:6px;">Smritium is developed by DataFrontier Innovations under the <strong>ELEVATE Nxt programme (Government of Karnataka)</strong>, with published benchmarks, a reproducibility audit, and a provisional patent on multi-signal context rehydration.</p>
+      </div>
+      <a class="btn btn-ghost" href="research.html">Read the research →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="section-tight">
+  <div class="container narrow faq">
+    <h2 class="reveal" style="text-align:center; margin-bottom:36px;">Questions, answered</h2>
+    <details class="reveal"><summary>Does any of my data ever leave my machine?</summary>
+      <p>Not for the system to function. Capture, embedding, storage, retrieval, and local reasoning are all on-device. If you <em>choose</em> to use a remote model for synthesis, only the minimal prompt context crosses — and with Membrane, it's redacted, approval-gated, and logged.</p></details>
+    <details class="reveal"><summary>What happens if I'm offline or my API key expires?</summary>
+      <p>Smritium never hard-fails on missing inference. Retrieval always works; a local model via Ollama keeps full ask/synthesis working with zero connectivity.</p></details>
+    <details class="reveal"><summary>How is this different from Supermemory or other memory APIs?</summary>
+      <p>They're cloud infrastructure — your corpus is uploaded, embedded remotely, and metered per token; self-hosting starts at premium tiers. Smritium is local-first by construction: private deployment is the default, citations are content-addressed and reproducible, and pricing is flat. Different architecture, different promise.</p></details>
+    <details class="reveal"><summary>What does "verifiable memory" actually mean?</summary>
+      <p>Chunk boundaries and hashes are a pure function of content and chunker config — not ingestion order or timestamps. Re-ingesting the same corpus reproduces 100% of chunk hashes, so a citation you got last month still points at exactly the same evidence today.</p></details>
+    <details class="reveal"><summary>What's "Smritium" mean?</summary>
+      <p>From Sanskrit <em>smṛti</em> (स्मृति) — "that which is remembered." Built in Karnataka, India, where memory has been treated as sacred infrastructure for about three thousand years longer than the cloud.</p></details>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="section-tight">
+  <div class="container">
+    <div class="cta-band reveal">
+      <h2>Your memory. Your machine. Your terms.</h2>
+      <p>Install the free core in under two minutes, ingest a folder, and ask your first question — then unplug the internet and ask it again.</p>
+      <a class="btn btn-accent" href="onboarding.html">Get started free →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div class="foot-col">
+        <img src="assets/logo.svg" alt="Smritium" style="height:30px;">
+        <p class="muted" style="margin-top:14px; font-size:.9rem; max-width:280px;">The sovereign memory layer for AI. AI that knows your context and keeps your secrets.</p>
+        <div class="grant-badge">🏛 Backed by <strong>ELEVATE Nxt</strong> · Govt. of Karnataka</div>
+      </div>
+      <div class="foot-col">
+        <h4>Product</h4>
+        <a href="index.html#connectors">Connectors</a>
+        <a href="index.html#mcp">MCP</a>
+        <a href="index.html#plugins">Plugins</a>
+        <a href="index.html#rag">Attributed RAG</a>
+        <a href="index.html#memory-graph">Memory Graph</a>
+        <a href="index.html#pricing">Pricing</a>
+        <a href="docs.html">API</a>
+      </div>
+      <div class="foot-col">
+        <h4>Resources</h4>
+        <a href="docs.html">Documentation</a>
+        <a href="changelog.html">Changelog</a>
+        <a href="research.html">Benchmarks &amp; Research</a>
+        <a href="llms.txt">llms.txt</a>
+      </div>
+      <div class="foot-col">
+        <h4>Company</h4>
+        <a href="research.html#about">About</a>
+        <a href="mailto:hello@smritium.ai">Contact</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </div>
+    </div>
+    <div class="foot-note">
+      <span>© 2026 DataFrontier Innovations Pvt Ltd. All rights reserved.</span>
+      <span>Made in Karnataka, India 🇮🇳 · smṛti (स्मृति): that which is remembered</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* Scroll reveal */
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); } }), { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+/* Typing terminal demo */
+const lines = [
+  { t: '$ smritium ask "what did the auditor flag in the Q1 close?"', cls: 'prompt', d: 24 },
+  { t: '', d: 300 },
+  { t: 'Two items: the unreconciled PayPal settlement from', d: 14 },
+  { t: '14 Mar and the missing vendor W-9 for Kestrel Ltd.', d: 14 },
+  { t: 'You resolved the first on 02 Apr; the W-9 is still open.', d: 14 },
+  { t: '', d: 200 },
+  { t: '  [1] q1_close_notes.md · chunk 9f31c2ea', cls: 'cite', d: 10 },
+  { t: '  [2] mail/auditor_response.eml · chunk 77aa01d4', cls: 'cite', d: 10 },
+  { t: '', d: 200 },
+  { t: '── engine: local (ollama) · network: offline · 0 bytes egressed', cls: 'dim', d: 8 },
+];
+const term = document.getElementById('terminal-demo');
+let li = 0;
+function typeLine() {
+  if (li >= lines.length) return;
+  const L = lines[li++];
+  const div = document.createElement('div');
+  if (L.cls) div.className = L.cls;
+  term.appendChild(div);
+  let ci = 0;
+  (function tick() {
+    if (ci <= L.t.length) { div.textContent = L.t.slice(0, ci++); setTimeout(tick, L.d); }
+    else setTimeout(typeLine, 120);
+  })();
+}
+setTimeout(typeLine, 600);
+</script>
+</body>
+</html>

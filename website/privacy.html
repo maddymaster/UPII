@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy — Smritium</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/styles.css">
+<style>
+  .legal { max-width: 720px; margin: 0 auto; }
+  .legal h2 { margin: 40px 0 12px; font-size: 1.3rem; }
+  .legal p, .legal li { color: var(--ink-soft); margin-bottom: 12px; }
+  .legal ul { margin-left: 22px; }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="nav-logo" href="index.html"><img src="assets/logo.svg" alt="Smritium"></a>
+    <div class="nav-links"><a href="index.html">Home</a><a href="docs.html">Docs</a><a class="btn btn-primary btn-sm" href="onboarding.html">Get started</a></div>
+  </div>
+</nav>
+<section>
+  <div class="container legal">
+    <p class="eyebrow">Privacy Policy</p>
+    <h1>What never leaves your device</h1>
+    <p class="muted">Last updated: July 2026 · <strong>Draft — to be reviewed by counsel before launch.</strong></p>
+
+    <h2>The short version</h2>
+    <p>Smritium is architected so that we <em>cannot</em> see your data. Your documents, embeddings, vectors, metadata, knowledge graph, and query history live on your machine, in files you own and can inspect. We do not operate a cloud that stores your corpus.</p>
+
+    <h2>What stays local (everything, by default)</h2>
+    <ul>
+      <li>Your ingested documents and their chunk hashes</li>
+      <li>Embeddings and the vector store (LanceDB, on disk)</li>
+      <li>Metadata database (SQLite, on disk)</li>
+      <li>Knowledge graph, tasks, inbox items, and query history</li>
+    </ul>
+
+    <h2>What may leave, and only with your action</h2>
+    <ul>
+      <li><strong>Optional remote inference:</strong> if you configure a remote model, the minimal prompt context for that query crosses to that provider under their terms. Local inference (Ollama) requires no egress at all. Enterprise Membrane redacts, gates, and logs any such egress.</li>
+      <li><strong>Opt-in analytics:</strong> disabled by default. If enabled, aggregate usage counters only — never content.</li>
+      <li><strong>Website:</strong> smritium.ai collects nothing beyond standard server logs and any email you voluntarily submit to the waitlist or contact address.</li>
+    </ul>
+
+    <h2>Your rights</h2>
+    <p>Deleting your data is an <code class="inline">rm</code>, not a support ticket. Because your corpus never reaches us, data-subject requests under DPDP/GDPR concerning corpus content don't arise — there is nothing on our side to disclose, correct, or erase. For waitlist/contact emails, write to <a href="mailto:hello@smritium.ai">hello@smritium.ai</a> and we will delete your record.</p>
+
+    <h2>Contact</h2>
+    <p>DataFrontier Innovations Pvt Ltd, Bengaluru, Karnataka, India · <a href="mailto:hello@smritium.ai">hello@smritium.ai</a></p>
+  </div>
+</section>
+<footer>
+  <div class="container foot-note" style="border-top:none; margin-top:0; padding-top:0;">
+    <span>© 2026 DataFrontier Innovations Pvt Ltd</span>
+    <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></span>
+  </div>
+</footer>
+</body>
+</html>

@@ -17,6 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "typer",
+    "click<8.2",
     "rich",
     "lancedb",
     "sentence-transformers",
