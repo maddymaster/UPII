@@ -1,5 +1,5 @@
 {
-  "corpus_fingerprint": "a4de370587139e63b2dcbed59ea9043092bb276e911a8294c4fea83debb4569d",
+  "corpus_fingerprint": "871357277e24bce658b671c5b885a8df3290dd9f817a036c9080ce59e831f40d",
   "n_docs": 22,
   "n_chunks": 22,
   "chunker": {
@@ -18,7 +18,7 @@
       "id": "q02_retrieval_latency_target",
       "query": "What is the p95 latency target for context retrieval?",
       "relevant_chunk_ids": [
-        "c013b760c067404ecead5818c5f97dc57c4646109b32561fdfffe3d4e4548c7d"
+        "f51b5e2942678bdb90c0ef066b37a1ad2ec04dd1b26480a65db95aadd9aad49a"
       ]
     },
     {
@@ -67,7 +67,7 @@
       "id": "q09_performance_and_incident",
       "query": "What are our retrieval performance targets and where did they break?",
       "relevant_chunk_ids": [
-        "c013b760c067404ecead5818c5f97dc57c4646109b32561fdfffe3d4e4548c7d",
+        "f51b5e2942678bdb90c0ef066b37a1ad2ec04dd1b26480a65db95aadd9aad49a",
         "9381ad1b07a1f7bf0d41cebe46a1b79d844146c4fe21a3f84511f0ac4ae8768a"
       ]
     },

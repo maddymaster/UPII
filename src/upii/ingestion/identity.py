@@ -1,6 +1,6 @@
 """Deterministic identity for documents.
 
-Reproducibility (Annexure-1 T1.2) requires that re-ingesting the identical corpus
+Reproducibility requires that re-ingesting the identical corpus
 converges to an identical store. The chunk hash is already content-addressed, but
 the *document* id used to be a random ``uuid.uuid4()`` — so the chunk -> document
 linkage (``chunks.doc_id`` / ``Chunk.doc_hash``) differed run to run.

@@ -1,5 +1,5 @@
 {
-  "corpus_fingerprint": "a4de370587139e63b2dcbed59ea9043092bb276e911a8294c4fea83debb4569d",
+  "corpus_fingerprint": "871357277e24bce658b671c5b885a8df3290dd9f817a036c9080ce59e831f40d",
   "n_queries_total": 12,
   "n_queries_scored": 12,
   "target_recall@10": 0.85,
@@ -10,8 +10,8 @@
       "5": 0.9583333333333334,
       "10": 0.9583333333333334
     },
-    "mrr": 0.9166666666666666,
-    "ndcg@10": 0.9181485467338333
+    "mrr": 0.9027777777777778,
+    "ndcg@10": 0.9114586124961823
   },
   "per_query": [
     {
@@ -140,14 +140,14 @@
       "scorable": true,
       "n_relevant": 2,
       "n_retrieved": 10,
-      "first_relevant_rank": 2,
+      "first_relevant_rank": 3,
       "recall": {
         "1": 0.0,
         "5": 0.5,
         "10": 0.5
       },
-      "mrr": 0.5,
-      "ndcg@10": 0.38685280723454163
+      "mrr": 0.3333333333333333,
+      "ndcg@10": 0.3065735963827292
     },
     {
       "id": "q10_onboarding_buddy",

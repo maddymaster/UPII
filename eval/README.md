@@ -2,8 +2,7 @@
 
 Internal, committed harness that measures the **current retrieval path**
 (`SearchEngine` → `ContextRehydrator`, i.e. what `upii ask` uses) against a fixed,
-labelled dataset. Built for the Phase 3 grant demonstration target:
-**Recall@10 ≥ 0.85**.
+labelled dataset, against a target of **Recall@10 ≥ 0.85**.
 
 ## One command
 

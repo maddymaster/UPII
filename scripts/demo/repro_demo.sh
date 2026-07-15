@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # repro_demo.sh — a clean, narratable terminal demo of DETERMINISTIC ingestion.
-# Annexure-1 T1.2: "re-ingestion to an identical state".
+# Demonstrates re-ingestion to an identical state.
 #
 # It wipes a throwaway demo store, ingests a small sample corpus, prints the chunk
 # count and a few chunk hashes, then RE-ingests the identical corpus and shows the

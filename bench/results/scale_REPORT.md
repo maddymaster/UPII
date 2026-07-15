@@ -34,5 +34,5 @@
 - **Edit:** changed files re-chunked and purged their stale chunks; vector store stayed in sync.
 - **Delete:** removed files purged chunks, vectors and metadata cleanly.
 
-> For the grant demonstration on the procured Mac Studio, run with `--docs 20000`
+> For a full-scale run, use `--docs 20000`
 > (~1,000,000 chunks). Hash reproducibility is independent of the embedder.
