@@ -1,6 +1,6 @@
 # Phase 2 — Reproducibility Audit (deterministic chunking + incremental ingest)
 
-**Milestone:** ELEVATE NxT Annexure-1 **T1.2** — *100% reproducible chunk hashes at scale; re-ingestion to identical state; dedup + edit-diff + delete validated.*
+**Goal:** *100% reproducible chunk hashes at scale; re-ingestion to identical state; dedup + edit-diff + delete validated.*
 
 **Scope of audit:** `src/upii/ingestion/chunker.py`, `src/upii/ingestion/loader.py`, and the ingest path in `src/upii/cli.py` (`ingest`, plus the `watch`-approve and `demo seed` paths that duplicate it), `src/upii/storage/db.py`, `src/upii/storage/vector.py`.
 

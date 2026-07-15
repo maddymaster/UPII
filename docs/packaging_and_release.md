@@ -147,8 +147,7 @@ upii ingest .\demo_dataset --recursive
 upii ask "What is the budget?"
 ```
 
-For a deterministic re-ingestion demo, see `scripts/demo/repro_demo.sh`
-(documented in [`phase2_deliverables.md`](phase2_deliverables.md)).
+For a deterministic re-ingestion demo, see `scripts/demo/repro_demo.sh`.
 
 ---
 

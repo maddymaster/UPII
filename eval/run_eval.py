@@ -4,7 +4,7 @@
 Loads ``dataset/labels.json``, runs every query through the *current* retrieval
 path, and computes Recall@{1,5,10}, MRR and nDCG@10. Writes a human-readable
 ``results/REPORT.md`` and a machine-readable ``results/results.json``, and prints a
-summary. Exit code is non-zero if Recall@10 falls below the grant target (0.85),
+summary. Exit code is non-zero if Recall@10 falls below the target (0.85),
 so this can gate CI.
 
 Usage:
@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from eval import harness, metrics  # noqa: E402
 
-# Cutoffs required by the grant demonstration.
+# Reporting cutoffs.
 KS = (1, 5, 10)
 NDCG_K = 10
 DEFAULT_TARGET_RECALL_AT_10 = 0.85

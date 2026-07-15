@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scale + reproducibility check for deterministic ingestion (Annexure-1 T1.2).
+"""Scale + reproducibility check for deterministic ingestion.
 
 Drives a synthetic corpus through the REAL ingest pipeline:
 
@@ -21,7 +21,7 @@ Pass --real-embed to exercise the production SentenceTransformer path.
 Examples
 --------
     python scripts/bench/scale_check.py                 # quick local run
-    python scripts/bench/scale_check.py --docs 20000    # ~1M chunks (grant run)
+    python scripts/bench/scale_check.py --docs 20000    # ~1M chunks (large run)
     python scripts/bench/scale_check.py --real-embed --docs 200
 """
 
@@ -254,7 +254,7 @@ def write_report(args, embed_label, s1, t_ingest, docs_n, chunks_n, n_edit, n_de
         "- **Edit:** changed files re-chunked and purged their stale chunks; vector store stayed in sync.",
         "- **Delete:** removed files purged chunks, vectors and metadata cleanly.",
         "",
-        "> For the grant demonstration on the procured Mac Studio, run with `--docs 20000`",
+        "> For a full-scale run, use `--docs 20000`",
         "> (~1,000,000 chunks). Hash reproducibility is independent of the embedder.",
         "",
     ]

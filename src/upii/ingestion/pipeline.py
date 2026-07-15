@@ -2,7 +2,7 @@
 
 Every place that promotes content into long-term memory (the `ingest` command, the
 `watch`-approve flow, the demo seed) goes through here, so the dedup / edit / delete
-semantics required by Annexure-1 T1.2 are defined once:
+semantics are defined once:
 
 - **dedup**   — re-ingesting unchanged bytes is a no-op (same ``content_hash`` present).
 - **edit**    — a changed file keeps its path but gets a new ``content_hash``; the prior

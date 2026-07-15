@@ -8,7 +8,11 @@ build/
 dist/
 release/
 *.spec
+# …but the committed PyInstaller spec is the reproducible-build source (Phase 8 / release.yml)
+!upii.spec
 *.egg-info/
+# stray sdist extraction dirs from local builds
+upii-*/
 
 # Python caches
 __pycache__/
@@ -39,17 +43,16 @@ sources.yaml
 eval/.index/
 
 # ---------------------------------------------------------------------------
-# Internal / not-for-open-source docs
-# Grant, investor, strategy, patent, and internal build-planning material that
-# should not ship in a public open-source repo. Technical docs (docs/data_model,
-# design_blueprint, packaging, qa_plan, REPORTs) and test fixtures are kept.
+# Internal working material — kept local, not part of the public package.
+# The technical docs (design_blueprint, data_model, packaging, qa_plan, audits,
+# REPORTs) and the test fixtures are tracked and stay.
 # NOTE: files already committed stay tracked until `git rm --cached <path>`.
 # ---------------------------------------------------------------------------
 
-# Grant programme (tranche plans, patent, milestone/build prompts)
+# Funding / programme paperwork
 ELEVATE_Nxt_Grant/
 
-# Internal working-doc set (superseded duplicates of docs/, plus investor/release-manager notes)
+# Superseded internal duplicates of docs/, plus release-manager notes
 project_docs/
 
 # AI build prompts / internal engineering scripts
@@ -59,11 +62,32 @@ CLAUDE_CODE_PROMPTS_*.md
 STRATEGY_grant_and_gtm.md
 UPII_PRD.md
 
-# Grant/investor/status walkthroughs, jury & demo scripts
+# Status walkthroughs & presentation scripts
 docs/grant_officer_demo_walkthrough.md
 docs/walkthrough*.md
 docs/jury_progress_demo.md
 docs/demo_script.md
 
-# Business-specific demo data (real-sounding partner/meeting notes)
+# Milestone scorecard (the technical audit it summarises is kept:
+# docs/phase2_reproducibility_audit.md)
+docs/phase2_deliverables.md
+
+# Demo data derived from real partner/meeting notes
 demo_data_v2/
+
+# Seeds the demo store from demo_data_v2/ above; bypasses the deterministic ingest
+# pipeline (random uuids), so it is internal scratch tooling, not a public entry point.
+scripts/reset_demo_env.py
+
+# Website (maintained separately, not part of the open-source package)
+website/
+
+# Local AI-assistant config
+.claude/
+# Session preamble + phase discipline. Local-only: it points at
+# ELEVATE_Nxt_Grant/PHASE_STATUS.md, which is itself untracked.
+CLAUDE.md
+
+# Debug / scratch files
+debug_*.py
+verification_output.txt

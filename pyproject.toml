@@ -6,25 +6,58 @@ build-backend = "setuptools.build_meta"
 name = "upii"
 version = "0.5.0"
 authors = [
-  { name="UPII Team", email="team@upii.ai" },
+  { name = "Maddy", email = "maddy@datafrontier.co" },
 ]
-description = "Local-first personal memory substrate"
+description = "Local-first memory for AI: cited answers over your own documents, 100% on-device"
 readme = "README.md"
-requires-python = ">=3.9"
+license = { text = "MIT" }
+requires-python = ">=3.10,<3.13"
+keywords = ["rag", "local-first", "memory", "llm", "privacy", "vector-search", "knowledge-base", "ollama"]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Indexing",
 ]
 dependencies = [
-    "typer",
-    "click<8.2",
-    "rich",
-    "lancedb",
-    "sentence-transformers",
-    "ollama",
-    "pypdf",
-    "watchdog>=4.0.0"
+    "typer>=0.9.0",
+    "click<8.2",              # typer 0.9.x incompatible with click>=8.2
+    "rich>=13.0",
+    "pydantic>=2.5",
+    "lancedb>=0.5.0",
+    "pyarrow>=14.0.2",        # >=17 required for Python 3.13+ wheels if ceiling is lifted
+    "numpy<2",                # pyarrow 14.x / lancedb 0.5.x are not numpy-2 safe
+    "sentence-transformers>=2.3.1",
+    "ollama>=0.1.6",
+    "PyYAML>=6.0",
+    "watchdog>=4.0.0",
+    "tenacity>=8.2",
+    "pypdf>=3.17.0",
 ]
+
+[project.optional-dependencies]
+overlay = [
+    "pynput>=1.7",            # Cmd+Shift+K capture overlay (desktop only)
+]
+dev = [
+    "pytest>=7.4",
+    "psutil",                 # tests/perf/test_long_running.py
+    "pyinstaller",            # standalone binary builds
+    "sqlite-utils>=3.36",     # DB inspection during development
+    "tomli; python_version < '3.11'",   # tests/test_version.py; tomllib is stdlib from 3.11
+]
+
+[project.urls]
+Homepage = "https://github.com/datafrontier/upii"
+Repository = "https://github.com/datafrontier/upii"
+Issues = "https://github.com/datafrontier/upii/issues"
 
 [project.scripts]
 upii = "upii.cli:app"
