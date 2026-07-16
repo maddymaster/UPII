@@ -8,6 +8,12 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Added
+- `upii ask --no-answer` — retrieval-only mode: runs fusion + `--debug` scoring and
+  prints the cited chunks, but skips LLM generation. Output is fully deterministic,
+  so `scripts/demo/phase3_demo.sh` is now byte-identical run to run (the generated
+  answer was the one stochastic element). Covered by `tests/test_ask_no_answer.py`.
+
 ## [0.6.0] - 2026-07-16
 
 Retrieval, knowledge-graph, benchmarking and packaging work on top of `v0.5.0`.

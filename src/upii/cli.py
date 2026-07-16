@@ -214,6 +214,10 @@ def search(query: str, limit: int = 5, time: str = typer.Option(None, help="Time
 def ask(
     question: str,
     debug: bool = typer.Option(False, "--debug", help="Show per-signal fusion scoring"),
+    no_answer: bool = typer.Option(
+        False, "--no-answer",
+        help="Skip LLM generation; show only retrieval (deterministic, reproducible)",
+    ),
     w_semantic: Optional[float] = typer.Option(None, "--w-semantic", help="Override semantic fusion weight"),
     w_temporal: Optional[float] = typer.Option(None, "--w-temporal", help="Override temporal fusion weight"),
     w_relational: Optional[float] = typer.Option(None, "--w-relational", help="Override relational fusion weight"),
@@ -240,6 +244,19 @@ def ask(
 
     except Exception as e:
         console.print(f"[red]Retrieval failed: {e}[/red]")
+        return
+
+    # Retrieval-only: skip the (stochastic) LLM and print the cited chunks the
+    # answer would have drawn from. Everything above this point is deterministic,
+    # so `--no-answer` gives byte-identical output run to run.
+    if no_answer:
+        if not results:
+            console.print("\n[yellow]No relevant context found.[/yellow]")
+            return
+        console.print("\n[bold]Retrieved context[/bold] [dim](generation skipped)[/dim]:")
+        for i, r in enumerate(results):
+            console.print(f"\n[dim][{i+1}][/dim] [blue]{r.doc_hash}[/blue]")
+            console.print(f"[italic]{' '.join((r.text or '').split())[:200]}…[/italic]")
         return
 
     # 2. Generation
