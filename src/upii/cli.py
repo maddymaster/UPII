@@ -33,13 +33,16 @@ def _print_fusion_debug(results, weights: Optional[dict]) -> None:
         "[dim]weights: " + ", ".join(f"{s}={w[s]:g}" for s in SIGNALS) + "[/dim]"
     )
 
+    # The signal columns carry the point of this view, so pin them no_wrap and let
+    # the free-text Chunk column give up width instead (Rich otherwise starves the
+    # numeric columns to ellipses to fit a long, no_wrap chunk).
     table = Table(show_lines=False)
-    table.add_column("#", style="dim", justify="right")
-    table.add_column("Fused", style="bold", justify="right")
+    table.add_column("#", style="dim", justify="right", no_wrap=True)
+    table.add_column("Fused", style="bold", justify="right", no_wrap=True)
     for s in SIGNALS:
-        table.add_column(s.capitalize(), justify="right")
-    table.add_column("Dominant", style="green")
-    table.add_column("Chunk", style="italic", no_wrap=True)
+        table.add_column(s.capitalize(), justify="right", no_wrap=True)
+    table.add_column("Dominant", style="green", no_wrap=True)
+    table.add_column("Chunk", style="italic", overflow="ellipsis", max_width=34)
 
     for i, r in enumerate(results):
         if not isinstance(r, RankedChunk):
