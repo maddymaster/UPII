@@ -25,7 +25,13 @@ class Config:
     # eval set in eval/ (Recall@10 >= 0.85). Override per-call via `upii ask` flags.
     fusion_weight_semantic: float = 1.0
     fusion_weight_temporal: float = 0.25
-    fusion_weight_relational: float = 0.5
+    # Relational defaults to 0.0: ingestion now populates the knowledge graph, so the
+    # signal is LIVE and available (raise it via `upii ask --w-relational`), but on the
+    # retrieval eval it is not yet net-positive — boosting on a non-discriminating query
+    # entity (e.g. the product's own name) can displace a better semantic hit, dipping
+    # Recall@1 while Recall@10 holds. Kept at 0 until it is tuned to help; see
+    # eval/results/REPORT.md and docs/evidence.md (Phase 4).
+    fusion_weight_relational: float = 0.0
     # Recency / calendar-proximity half-life in days: a chunk/event this old
     # contributes half of a fresh one to the temporal signal.
     temporal_halflife_days: float = 30.0

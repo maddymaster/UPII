@@ -22,12 +22,12 @@ These numbers are a function of the config below, not the corpus alone. Change a
 | --- | --- |
 | Fusion weight — semantic | 1 |
 | Fusion weight — temporal | 0.25 |
-| Fusion weight — relational | 0.5 |
+| Fusion weight — relational | 0 |
 | Embedding model | `all-MiniLM-L6-v2` |
 | Chunk size / overlap | 1000 / 200 |
 | RAG min similarity | 0.5 |
 | RAG max chunks | 5 |
-| Config fingerprint | `ace9bad0c7d9d354…` |
+| Config fingerprint | `2025b5b0de96f421…` |
 
 ## Per-query
 

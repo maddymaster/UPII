@@ -1,6 +1,6 @@
 # UPII Entity-Extraction Eval — REPORT
 
-**❌ FAIL** — overall precision = 1.000 (target ≥ 1.01)
+**✅ PASS** — overall precision = 1.000 (target ≥ 0.80)
 
 Scored **3217** gold entities across **500** documents. Precision-first: only precision gates; recall and F1 are reported so the trade-off is visible.
 

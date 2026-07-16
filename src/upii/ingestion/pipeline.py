@@ -19,6 +19,10 @@ from typing import List, Optional
 
 from upii.core.types import Document, Chunk
 from upii.ingestion.identity import doc_id_for
+from upii.analysis.entity_extractor import EntityExtractor
+
+# One shared extractor: its regexes compile once, and it is stateless per call.
+_ENTITY_EXTRACTOR = EntityExtractor()
 
 
 @dataclass
@@ -88,6 +92,17 @@ def _ingest_core(doc, db, vector_store, embedder, chunker, force, flush=None):
     # 4. Store metadata.
     db.upsert_document(doc, doc_id)
     db.add_chunks(chunks)
+
+    # 4b. Extract entities per chunk and write the knowledge-graph nodes + edges.
+    #     Edges are keyed by chunk_hash, so two entities in the same chunk co-occur;
+    #     write_entities_for_doc clears this doc's prior edges first, so it is
+    #     idempotent under re-ingest and deterministic (content-addressed ids).
+    mentions = [
+        (ent.name, ent.category, ch.chunk_hash, ent.context)
+        for ch in chunks
+        for ent in _ENTITY_EXTRACTOR.extract(ch.text)
+    ]
+    db.write_entities_for_doc(doc_id, mentions)
 
     # 5. Only a *forced* re-ingest can reach here with vectors already present for this
     #    doc_id: doc_id is a pure function of content_hash, and step 1 returns early

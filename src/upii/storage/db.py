@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import uuid
+import hashlib
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 from upii.core.config import config
@@ -399,25 +400,60 @@ class DB:
         finally:
             conn.close()
 
+    @staticmethod
+    def _entity_id(name: str, category: str) -> str:
+        """Content-addressed entity id, so the same (name, category) always maps to
+        the same id and an independent re-ingest of a corpus reproduces the same
+        graph (upholds the 'same input -> same store' property)."""
+        return hashlib.sha1(f"{name}\0{category}".encode("utf-8")).hexdigest()[:16]
+
     def add_entity(self, name: str, category: str) -> str:
-        """Add or retrieve an entity."""
+        """Add or retrieve an entity. Idempotent; id is content-addressed."""
+        entity_id = self._entity_id(name, category)
         conn = self.get_connection()
         try:
             cur = conn.cursor()
-            # Check existing
-            cur.execute("SELECT entity_id FROM entities WHERE name = ? AND category = ?", (name, category))
-            row = cur.fetchone()
-            if row:
-                return row[0]
-            
-            # Insert new
-            entity_id = str(uuid.uuid4())
             cur.execute(
-                "INSERT INTO entities (entity_id, name, category) VALUES (?, ?, ?)",
-                (entity_id, name, category)
+                "INSERT OR IGNORE INTO entities (entity_id, name, category) VALUES (?, ?, ?)",
+                (entity_id, name, category),
             )
             conn.commit()
             return entity_id
+        finally:
+            conn.close()
+
+    def write_entities_for_doc(self, doc_id: str, mentions) -> int:
+        """(Re)write the entity nodes + chunk edges for one document, idempotently.
+
+        ``mentions`` is an iterable of ``(name, category, chunk_hash, context)``.
+        Existing edges for ``doc_id`` are deleted first, so a forced re-ingest does
+        not duplicate them; entity and edge ids are content-addressed, so re-writing
+        identical mentions converges to the identical rows. Returns the edge count.
+
+        Entity extraction never feeds a chunk hash, so this does not affect the
+        determinism/reproducibility of chunking.
+        """
+        conn = self.get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM entity_edges WHERE source_doc_id = ?", (doc_id,))
+            n = 0
+            for name, category, chunk_hash, context in mentions:
+                eid = self._entity_id(name, category)
+                cur.execute(
+                    "INSERT OR IGNORE INTO entities (entity_id, name, category) VALUES (?, ?, ?)",
+                    (eid, name, category),
+                )
+                edge_id = hashlib.sha1(f"{eid}\0{chunk_hash}".encode("utf-8")).hexdigest()[:16]
+                cur.execute(
+                    """INSERT OR IGNORE INTO entity_edges
+                       (edge_id, entity_id, chunk_hash, source_doc_id, context, confidence)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (edge_id, eid, chunk_hash, doc_id, context, 1.0),
+                )
+                n += 1
+            conn.commit()
+            return n
         finally:
             conn.close()
 

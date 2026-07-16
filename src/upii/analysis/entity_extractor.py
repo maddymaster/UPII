@@ -76,6 +76,10 @@ _ACRONYM_STOPLIST = {
     # All-caps corporate forms are handled by the suffix rule (which needs a name
     # in front); a bare one on its own is not an organisation.
     "LLC", "LLP", "PLC", "GMBH",
+    # Document / code markers and common all-caps words that are not organisations.
+    "TODO", "FIXME", "README", "NOTE", "NOTES", "HACK", "BUG", "WARN", "WARNING",
+    "XXX", "EOF", "NULL", "TRUE", "FALSE", "OK", "NA", "N/A", "VS", "AKA", "ETC",
+    "PS", "RE", "CC", "BCC", "AM", "PM", "UTC", "GMT", "USD", "EUR", "GBP", "INR",
 }
 
 

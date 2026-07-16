@@ -97,7 +97,11 @@ def test_relational_fuses_onto_semantic_hit(monkeypatch):
     monkeypatch.setattr("upii.analysis.rehydration.DB", lambda: MockDB())
 
     rehydrator = ContextRehydrator()
-    results = rehydrator.rehydrate("What is the status of Project Omega?", limit=5)
+    # Relational defaults to weight 0 (not yet net-positive on the eval), so exercise
+    # the fusion mechanism with an explicit weight — the signal is live, just off by
+    # default. See config.fusion_weight_relational.
+    results = rehydrator.rehydrate("What is the status of Project Omega?", limit=5,
+                                   weights={"relational": 0.5})
 
     fused = next(c for c in results if c.chunk_hash == "c_shared")
     assert fused.contributions["semantic"] > 0
