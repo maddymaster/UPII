@@ -111,3 +111,47 @@ def mean(values: Iterable[float]) -> float:
     """Arithmetic mean; 0.0 for an empty sequence."""
     vals = list(values)
     return sum(vals) / len(vals) if vals else 0.0
+
+
+def set_prf1(predicted: Iterable, gold: Iterable) -> dict:
+    """Set-based precision / recall / F1 for an *unranked* prediction task.
+
+    Unlike the ``@k`` metrics above, order does not matter here — this is for
+    "did we extract the right set of things" tasks like entity extraction.
+    ``predicted`` and ``gold`` are compared as sets (dedup first).
+
+    Returns ``{tp, fp, fn, precision, recall, f1}``. Conventions at the edges:
+    - precision is 1.0 when nothing was predicted (no false positives),
+    - recall is 1.0 when there was nothing to find,
+    so a doc with no gold entities and no predictions scores a perfect 1.0 rather
+    than an undefined 0/0.
+    """
+    pred = set(predicted)
+    truth = set(gold)
+    tp = len(pred & truth)
+    fp = len(pred - truth)
+    fn = len(truth - pred)
+
+    precision = tp / (tp + fp) if (tp + fp) else 1.0
+    recall = tp / (tp + fn) if (tp + fn) else 1.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+    return {"tp": tp, "fp": fp, "fn": fn,
+            "precision": precision, "recall": recall, "f1": f1}
+
+
+def micro_prf1(per_item_counts: Iterable[dict]) -> dict:
+    """Aggregate per-doc {tp,fp,fn} counts into micro-averaged P/R/F1.
+
+    Micro-averaging pools counts across all docs before dividing, so each *entity*
+    weighs equally (a doc with 10 entities counts 10×). That is the right average
+    for a corpus-level precision claim; macro (mean of per-doc rates) would let a
+    50-entity doc and a 1-entity doc count the same.
+    """
+    tp = sum(c["tp"] for c in per_item_counts)
+    fp = sum(c["fp"] for c in per_item_counts)
+    fn = sum(c["fn"] for c in per_item_counts)
+    precision = tp / (tp + fp) if (tp + fp) else 1.0
+    recall = tp / (tp + fn) if (tp + fn) else 1.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+    return {"tp": tp, "fp": fp, "fn": fn,
+            "precision": precision, "recall": recall, "f1": f1}

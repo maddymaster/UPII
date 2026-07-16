@@ -9,10 +9,32 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 ## [Unreleased]
 
 ### Added
+- **Typed entity extraction** — `EntityExtractor` now emits `PERSON` / `ORG` /
+  `PROJECT` (previously only `PROJECT` / `TOPIC`), with the full surface form as the
+  name (`Project Omega`, not `Omega`; `Dr. Sivan` with the title). Precision-first,
+  dependency-light rules: project triggers, title-cued and known-given-name people,
+  corporate-suffix and acronym organisations (with a tech-acronym stop-list). This
+  is the extractor half of local knowledge-graph work (T1.4).
+- **Entity-extraction eval** (`eval/entities/`, `eval/run_entity_eval.py`) — a
+  committed 500-document labelled fixture (deterministic generator + gold labels,
+  fingerprint-guarded) scoring set-based precision / recall / F1 per type, written
+  to `eval/results/entity_REPORT.md`. Current result: **overall precision 1.000**
+  (target ≥ 0.80), recall 0.920, F1 0.959. The fixture is deliberately hard —
+  acronyms, single/titled names, corporate suffixes, plus adversarial distractors
+  (capitalised non-entities, tech acronyms) and a pool of uncommon names the
+  rule-based extractor cannot recover, so recall is honestly below 1.0.
+  Regenerate with `python eval/run_entity_eval.py --rebuild`.
 - `upii ask --no-answer` — retrieval-only mode: runs fusion + `--debug` scoring and
   prints the cited chunks, but skips LLM generation. Output is fully deterministic,
   so `scripts/demo/phase3_demo.sh` is now byte-identical run to run (the generated
   answer was the one stochastic element). Covered by `tests/test_ask_no_answer.py`.
+
+### Fixed
+- Entity extractor: the org-suffix rule no longer swallows a preceding sentence's
+  final word across a full stop (`...last Friday. Meridian Systems`), and a
+  repeated entity now claims its text span so a bare-name rule cannot re-emit it as
+  a separate false positive. Both were found by the new entity eval and are pinned
+  by regression tests in `tests/test_entity_extraction.py`.
 
 ## [0.6.0] - 2026-07-16
 

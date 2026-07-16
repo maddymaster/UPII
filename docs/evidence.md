@@ -9,6 +9,7 @@ from a committed command — the commands are listed below the table.
 | 1 | R&D infrastructure + performance baseline | [`bench/results/REPORT.md`](../bench/results/REPORT.md) | **627 docs/min** ingest (target ≥ 500) · **retrieval p50 40 ms** (target < 300) | `v0.6.0` |
 | 2 | Deterministic, reproducible, content-addressed ingestion | [`bench/results/scale_REPORT.md`](../bench/results/scale_REPORT.md), [`docs/phase2_reproducibility_audit.md`](phase2_reproducibility_audit.md) | **100% chunk-hash reproducibility** (dedup · edit · delete validated) | `v0.5.0` |
 | 3 | Multi-signal retrieval (Context Rehydrator v2) + local knowledge graph | [`eval/results/REPORT.md`](../eval/results/REPORT.md) | **Recall@10 = 0.958** (target ≥ 0.85) — **semantic ranking; relational signal inert (T1.4)** | `v0.6.0` |
+| 4 | Local knowledge graph — entity extraction (T1.4, extractor + eval) | [`eval/results/entity_REPORT.md`](../eval/results/entity_REPORT.md) | **Entity precision = 1.000** (target ≥ 0.80) · recall 0.920 on a 500-doc labelled set | *unreleased — on `main`* |
 
 ## Regenerating each number
 
@@ -24,6 +25,9 @@ pytest tests/test_chunk_determinism.py tests/test_incremental.py -q
 # Phase 3 — retrieval quality
 bash scripts/demo/phase3_demo.sh                            # recordable: ingest -> ask --debug -> eval -> Recall@10
 python eval/run_eval.py --rebuild                           # -> eval/results/REPORT.md (non-zero exit if below target)
+
+# Phase 4 — entity extraction quality
+python eval/run_entity_eval.py --rebuild                    # -> eval/results/entity_REPORT.md (non-zero exit if precision < 0.80)
 ```
 
 ## Notes
@@ -45,3 +49,11 @@ python eval/run_eval.py --rebuild                           # -> eval/results/RE
   uniform offset that cannot reorder. `scripts/demo/phase3_demo.sh` STEP 3b
   *demonstrates* this (identical ranking with temporal + relational zeroed) rather
   than asserting it. **Do not cite 0.958 as evidence of multi-signal fusion.**
+- **Phase 4** — entity precision 1.000 is measured on a deliberately hard 500-doc
+  fixture: precision is *earned* against adversarial distractors (multi-word
+  capitalised non-entities, tech acronyms), not handed over by an easy set. Recall
+  0.920 is honestly below 1.0 — the fixture includes uncommon names the rule-based
+  extractor cannot recover without a title cue, and it does not pretend to. This is
+  the **extractor half of T1.4**; the extractor is not yet wired into
+  `ingestion/pipeline.py`, so the relational signal (Phase 3) is still inert until
+  that follow-up lands.

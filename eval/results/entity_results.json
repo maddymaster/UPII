@@ -1,0 +1,130 @@
+{
+  "corpus_fingerprint": "a7aff810cd4266479afeb2dbe679404e159e26ff66382ba0381ef38fc7ef660e",
+  "config": {
+    "types": [
+      "PERSON",
+      "ORG",
+      "PROJECT"
+    ],
+    "target_precision": 0.8,
+    "matching": "case- and punctuation-folded (name, type) set match",
+    "averaging": "micro (per-entity)",
+    "fingerprint": "f7befec0da75874fcb4bd7fd9ae81752d0556d10241627402f8ccae048f1c2b1"
+  },
+  "n_docs": 500,
+  "n_gold_entities": 3217,
+  "target_precision": 1.01,
+  "passed": false,
+  "overall": {
+    "tp": 2961,
+    "fp": 0,
+    "fn": 256,
+    "precision": 1.0,
+    "recall": 0.9204227541187442,
+    "f1": 0.958562641631596
+  },
+  "per_type": {
+    "PERSON": {
+      "tp": 1351,
+      "fp": 0,
+      "fn": 256,
+      "precision": 1.0,
+      "recall": 0.8406969508400747,
+      "f1": 0.9134550371872887
+    },
+    "ORG": {
+      "tp": 848,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "PROJECT": {
+      "tp": 762,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    }
+  },
+  "fp_samples": [],
+  "fn_samples": [
+    {
+      "doc": "doc_001.md",
+      "name": "adeyemi",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_001.md",
+      "name": "kowalski",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_005.md",
+      "name": "adeyemi",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_008.md",
+      "name": "adeyemi",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_008.md",
+      "name": "bergstr\u00f6m",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_010.md",
+      "name": "oyelaran",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_011.md",
+      "name": "bergstr\u00f6m",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_013.md",
+      "name": "bergstr\u00f6m",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_014.md",
+      "name": "nakamura",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_014.md",
+      "name": "thirunavukarasu",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_025.md",
+      "name": "adeyemi",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_033.md",
+      "name": "nakamura",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_042.md",
+      "name": "bergstr\u00f6m",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_045.md",
+      "name": "nakamura",
+      "type": "PERSON"
+    },
+    {
+      "doc": "doc_046.md",
+      "name": "okonkwo",
+      "type": "PERSON"
+    }
+  ]
+}
