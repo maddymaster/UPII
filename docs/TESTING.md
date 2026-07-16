@@ -121,6 +121,10 @@ you see all-zero Relational, that's the current state, working as documented.
 > Make your terminal reasonably wide (~100 columns) so the number columns aren't
 > squeezed.
 
+> 💡 Add `--no-answer` to see the retrieval + fusion table **without** the LLM
+> answer (`upii ask "…" --debug --no-answer`). That output is fully deterministic
+> — identical every run — which is what the Phase 3 demo uses.
+
 ---
 
 ## 6. Knowledge graph

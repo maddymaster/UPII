@@ -122,7 +122,7 @@ echo "    • Relational — '·' (0.00) on every row. Ingestion does not extrac
 echo "                   yet (T1.4), so the knowledge graph is empty."
 echo "    • Dominant   — 'semantic' on every row."
 echo
-run upii ask "$QUERY" --debug
+run upii ask "$QUERY" --debug --no-answer
 hr
 
 # 3b. THE CONTROL. Re-run the same query with the other two signals zeroed. If the
@@ -133,7 +133,7 @@ echo "  If fusion were doing work, zeroing two signals would reorder results."
 echo "  Verified claim: the order is IDENTICAL and every fused score drops by"
 echo "  exactly 0.25 (the constant temporal offset we removed)."
 echo
-run upii ask "$QUERY" --w-temporal 0 --w-relational 0 --debug
+run upii ask "$QUERY" --w-temporal 0 --w-relational 0 --debug --no-answer
 hr
 
 # 4. The measured number. --rebuild re-ingests the corpus into the isolated eval
