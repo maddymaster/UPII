@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -28,6 +29,33 @@ from eval import harness, metrics  # noqa: E402
 KS = (1, 5, 10)
 NDCG_K = 10
 DEFAULT_TARGET_RECALL_AT_10 = 0.85
+
+
+def config_snapshot() -> dict:
+    """The retrieval configuration these numbers were produced under.
+
+    Recall/MRR/nDCG are a function of the fusion weights and the retrieval geometry,
+    not just the corpus. Without this, a tuned weight and a re-run yield a different
+    number in the same report with nothing to say which config produced it — so the
+    snapshot is what makes a reported number reproducible rather than merely recorded.
+    """
+    from upii.core.config import config
+
+    cfg = {
+        "fusion_weights": config.fusion_weights(),
+        "embedding_model": config.embedding_model,
+        "chunk_size": config.chunk_size,
+        "chunk_overlap": config.chunk_overlap,
+        "rag_min_similarity": config.rag_min_similarity,
+        "rag_max_chunks": config.rag_max_chunks,
+        "ks": list(KS),
+        "ndcg_k": NDCG_K,
+    }
+    # Short digest so a changed config is obvious at a glance, and two reports can be
+    # compared without diffing every field.
+    blob = json.dumps(cfg, sort_keys=True).encode("utf-8")
+    cfg["fingerprint"] = hashlib.sha256(blob).hexdigest()
+    return cfg
 
 
 def _load_labels() -> dict:
@@ -85,6 +113,7 @@ def evaluate(target: float) -> dict:
     recall10 = agg["recall"][10]
     return {
         "corpus_fingerprint": current_fp,
+        "config": config_snapshot(),
         "n_queries_total": len(per_query),
         "n_queries_scored": len(scored),
         "target_recall@10": target,
@@ -134,6 +163,29 @@ def write_report(result: dict) -> None:
     lines.append(f"| MRR | {agg['mrr']:.3f} |")
     lines.append(f"| nDCG@{NDCG_K} | {agg[ndcg_key]:.3f} |")
     lines.append("")
+    cfg = result.get("config") or {}
+    if cfg:
+        w = cfg["fusion_weights"]
+        lines.append("## Configuration")
+        lines.append("")
+        lines.append(
+            "These numbers are a function of the config below, not the corpus alone. "
+            "Change a fusion weight and the metrics move — so any number quoted from "
+            "this report should be quoted with this snapshot."
+        )
+        lines.append("")
+        lines.append("| Setting | Value |")
+        lines.append("| --- | --- |")
+        lines.append(f"| Fusion weight — semantic | {w['semantic']:g} |")
+        lines.append(f"| Fusion weight — temporal | {w['temporal']:g} |")
+        lines.append(f"| Fusion weight — relational | {w['relational']:g} |")
+        lines.append(f"| Embedding model | `{cfg['embedding_model']}` |")
+        lines.append(f"| Chunk size / overlap | {cfg['chunk_size']} / {cfg['chunk_overlap']} |")
+        lines.append(f"| RAG min similarity | {cfg['rag_min_similarity']:g} |")
+        lines.append(f"| RAG max chunks | {cfg['rag_max_chunks']} |")
+        lines.append(f"| Config fingerprint | `{cfg['fingerprint'][:16]}…` |")
+        lines.append("")
+
     lines.append("## Per-query")
     lines.append("")
     lines.append("| Query | R@1 | R@5 | R@10 | RR | nDCG@10 | 1st hit |")

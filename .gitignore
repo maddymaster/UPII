@@ -36,8 +36,9 @@ upii_vectors/
 features.yaml
 sources.yaml
 
-# Phase 2 demo scratch dir (repro_demo.sh cleans this up; ignore if it crashes mid-run)
+# Demo scratch dirs (the scripts clean these up; ignore if one crashes mid-run)
 .repro_demo/
+.phase1_demo/
 
 # Phase 3 eval: isolated index rebuilt from the committed corpus (labels.json is committed)
 eval/.index/

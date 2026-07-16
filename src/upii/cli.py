@@ -96,7 +96,7 @@ def ingest(path: str, recursive: bool = False, force: bool = typer.Option(False,
     from upii.storage.vector import LocalVectorStore
     from upii.ingestion.loader import LocalLoader
     from upii.ingestion.chunker import RecursiveChunker
-    from upii.ingestion.pipeline import ingest_document
+    from upii.ingestion.pipeline import ingest_documents
     from upii.analysis.embeddings import Embedder
 
     console.print(f"[bold blue]Ingesting[/bold blue] from {path} (Recursive: {recursive}, Force: {force})")
@@ -124,44 +124,54 @@ def ingest(path: str, recursive: bool = False, force: bool = typer.Option(False,
     # Let's just process in stream and print status.
     
     updated_count = 0
-    for doc in loader.load(path):
-        try:
-            # 3-4. Deterministic ingest: dedup (no-op on unchanged), edit cleanup,
-            #      chunk/embed/store — all via the shared pipeline.
-            result = ingest_document(doc, db, vector_store, embedder, chunker, force=force)
 
-            if result.status == "skipped":
-                console.print(f"Skipping [dim]{doc.path}[/dim] (Unchanged)")
-                skipped_count += 1
-                continue
+    from upii.analysis.nlp import TaskExtractor
+    extractor = TaskExtractor()
 
-            if result.status == "updated":
-                console.print(
-                    f"Updating [green]{doc.path}[/green] "
-                    f"[dim](purged {result.removed_chunks} stale chunks)[/dim]"
-                )
-                updated_count += 1
-            else:
-                console.print(f"Processing [green]{doc.path}[/green]")
+    def _on_result(result):
+        nonlocal processed_count, skipped_count, updated_count
+        path_ = result.doc_path or result.doc_id
 
-            chunks = result.chunks or []
+        if result.status == "skipped":
+            console.print(f"Skipping [dim]{path_}[/dim] (Unchanged)")
+            skipped_count += 1
+            return
 
-            # 5. Extract Tasks
-            from upii.analysis.nlp import TaskExtractor
-            extractor = TaskExtractor()
-            tasks = extractor.extract(chunks)
-            if tasks:
-                db.add_tasks(tasks)
-                console.print(f"[magenta]Extracted {len(tasks)} tasks[/magenta]")
+        if result.status == "updated":
+            console.print(
+                f"Updating [green]{path_}[/green] "
+                f"[dim](purged {result.removed_chunks} stale chunks)[/dim]"
+            )
+            updated_count += 1
+        else:
+            console.print(f"Processing [green]{path_}[/green]")
 
-            processed_count += 1
-            logger.info(f"Ingested {doc.path} ({len(chunks)} chunks, {len(tasks)} tasks)")
-            
-        except Exception as e:
-            console.print(f"[red]Failed to ingest {doc.path}: {e}[/red]")
-            logger.error(f"Ingestion failed for {doc.path}", exc_info=True)
-            error_count += 1
-            
+        chunks = result.chunks or []
+
+        # Extract Tasks
+        tasks = extractor.extract(chunks)
+        if tasks:
+            db.add_tasks(tasks)
+            console.print(f"[magenta]Extracted {len(tasks)} tasks[/magenta]")
+
+        processed_count += 1
+        logger.info(f"Ingested {path_} ({len(chunks)} chunks, {len(tasks)} tasks)")
+
+    def _on_error(doc, exc):
+        nonlocal error_count
+        console.print(f"[red]Failed to ingest {doc.path}: {exc}[/red]")
+        logger.error(f"Ingestion failed for {doc.path}", exc_info=exc)
+        error_count += 1
+
+    # 3-4. Deterministic ingest: dedup (no-op on unchanged), edit cleanup, chunk/embed/
+    #      store — all via the shared pipeline. Batched so vectors are written once per
+    #      batch rather than once per document, which is what keeps throughput flat as
+    #      the index grows.
+    ingest_documents(
+        loader.load(path), db, vector_store, embedder, chunker,
+        force=force, on_result=_on_result, on_error=_on_error,
+    )
+
     console.print(
         f"\n[bold]Summary[/bold]: Processed {processed_count} "
         f"(of which {updated_count} updated), Skipped {skipped_count}, Errors {error_count}"

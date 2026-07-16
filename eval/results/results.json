@@ -1,5 +1,24 @@
 {
   "corpus_fingerprint": "871357277e24bce658b671c5b885a8df3290dd9f817a036c9080ce59e831f40d",
+  "config": {
+    "fusion_weights": {
+      "semantic": 1.0,
+      "temporal": 0.25,
+      "relational": 0.5
+    },
+    "embedding_model": "all-MiniLM-L6-v2",
+    "chunk_size": 1000,
+    "chunk_overlap": 200,
+    "rag_min_similarity": 0.5,
+    "rag_max_chunks": 5,
+    "ks": [
+      1,
+      5,
+      10
+    ],
+    "ndcg_k": 10,
+    "fingerprint": "ace9bad0c7d9d3545d66dd21c1100352da2ef53c0c1b3cdf7bf32864091d9634"
+  },
   "n_queries_total": 12,
   "n_queries_scored": 12,
   "target_recall@10": 0.85,
