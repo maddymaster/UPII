@@ -34,7 +34,9 @@ def _category_colours(categories: List[str]) -> Dict[str, str]:
 def build_graph_data(db: Optional[DB] = None) -> Dict[str, Any]:
     """Collect nodes + edges + the category colour legend from the local DB."""
     db = db or DB()
-    entities = db.get_entities()
+    # Drop orphan nodes (degree 0) — e.g. entities whose only document was later
+    # removed. They carry no edges, so they add nothing but clutter to the layout.
+    entities = [e for e in db.get_entities() if e["degree"] > 0]
     edges = db.get_cooccurrence_edges()
 
     categories = sorted({e["category"] for e in entities})

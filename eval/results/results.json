@@ -4,7 +4,7 @@
     "fusion_weights": {
       "semantic": 1.0,
       "temporal": 0.25,
-      "relational": 0.5
+      "relational": 0.0
     },
     "embedding_model": "all-MiniLM-L6-v2",
     "chunk_size": 1000,
@@ -17,7 +17,7 @@
       10
     ],
     "ndcg_k": 10,
-    "fingerprint": "ace9bad0c7d9d3545d66dd21c1100352da2ef53c0c1b3cdf7bf32864091d9634"
+    "fingerprint": "2025b5b0de96f421e27e2a9a53d6ee634f6b8235cb0445b91bd8b6d8eddbd418"
   },
   "n_queries_total": 12,
   "n_queries_scored": 12,

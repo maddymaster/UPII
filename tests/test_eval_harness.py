@@ -119,7 +119,7 @@ def test_config_snapshot_reflects_live_config(monkeypatch):
     assert before["fusion_weights"] == {
         "semantic": 1.0,
         "temporal": 0.25,
-        "relational": 0.5,
+        "relational": 0.0,  # relational live but weight-0 by default (Phase 4); not yet net-positive
     }, "defaults changed — update this pin and re-run the eval so REPORT.md matches"
 
     # A changed weight must show up in the snapshot AND move the fingerprint.
