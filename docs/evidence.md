@@ -8,8 +8,8 @@ from a committed command — the commands are listed below the table.
 |---|---|---|---|---|
 | 1 | R&D infrastructure + performance baseline | [`bench/results/REPORT.md`](../bench/results/REPORT.md) | **627 docs/min** ingest (target ≥ 500) · **retrieval p50 40 ms** (target < 300) | `v0.6.0` |
 | 2 | Deterministic, reproducible, content-addressed ingestion | [`bench/results/scale_REPORT.md`](../bench/results/scale_REPORT.md), [`docs/phase2_reproducibility_audit.md`](phase2_reproducibility_audit.md) | **100% chunk-hash reproducibility** (dedup · edit · delete validated) | `v0.5.0` |
-| 3 | Multi-signal retrieval (Context Rehydrator v2) + local knowledge graph | [`eval/results/REPORT.md`](../eval/results/REPORT.md) | **Recall@10 = 0.958** (target ≥ 0.85) — **semantic ranking; relational signal inert (T1.4)** | `v0.6.0` |
-| 4 | Local knowledge graph — entity extraction (T1.4, extractor + eval) | [`eval/results/entity_REPORT.md`](../eval/results/entity_REPORT.md) | **Entity precision = 1.000** (target ≥ 0.80) · recall 0.920 on a 500-doc labelled set | *unreleased — on `main`* |
+| 3 | Multi-signal retrieval (Context Rehydrator v2) | [`eval/results/REPORT.md`](../eval/results/REPORT.md) | **Recall@10 = 0.958** (target ≥ 0.85) — semantic + temporal; relational live but weight-0 by default | `v0.6.0` |
+| 4 | Local knowledge graph — extraction (T1.4) + populated-on-ingest graph + viz | [`eval/results/entity_REPORT.md`](../eval/results/entity_REPORT.md) | **Entity precision = 1.000** (target ≥ 0.80) · recall 0.920 on a 500-doc labelled set; `upii knowledge --graph` renders the ingested graph | `v0.7.0` |
 
 ## Regenerating each number
 
@@ -26,7 +26,8 @@ pytest tests/test_chunk_determinism.py tests/test_incremental.py -q
 bash scripts/demo/phase3_demo.sh                            # recordable: ingest -> ask --debug -> eval -> Recall@10
 python eval/run_eval.py --rebuild                           # -> eval/results/REPORT.md (non-zero exit if below target)
 
-# Phase 4 — entity extraction quality
+# Phase 4 — knowledge graph
+bash scripts/demo/phase4_demo.sh                            # recordable: ingest -> entity eval -> render graph.html
 python eval/run_entity_eval.py --rebuild                    # -> eval/results/entity_REPORT.md (non-zero exit if precision < 0.80)
 ```
 
@@ -53,7 +54,12 @@ python eval/run_entity_eval.py --rebuild                    # -> eval/results/en
   fixture: precision is *earned* against adversarial distractors (multi-word
   capitalised non-entities, tech acronyms), not handed over by an easy set. Recall
   0.920 is honestly below 1.0 — the fixture includes uncommon names the rule-based
-  extractor cannot recover without a title cue, and it does not pretend to. This is
-  the **extractor half of T1.4**; the extractor is not yet wired into
-  `ingestion/pipeline.py`, so the relational signal (Phase 3) is still inert until
-  that follow-up lands.
+  extractor cannot recover without a title cue, and it does not pretend to. T1.4 is
+  now **complete**: `upii ingest` populates the knowledge graph (deterministically,
+  idempotently), and `upii knowledge --graph` renders it offline. The relational
+  retrieval signal is therefore *live* — but wiring it revealed it is **not yet
+  net-positive** on the retrieval eval (it can boost a chunk that merely mentions a
+  query entity over a better semantic match: Recall@1 0.833 → 0.750, Recall@10 holds
+  at 0.958). So its fusion weight ships at **0** (available via `upii ask
+  --w-relational`); the Phase 3 retrieval number above is unchanged. Making it help
+  is the honest next step, not a closed claim.
