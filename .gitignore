@@ -83,6 +83,9 @@ scripts/reset_demo_env.py
 # Website (maintained separately, not part of the open-source package)
 website/
 
+# Paper drafts (keep private until published; move to internal repo or un-ignore at submission)
+paper/
+
 # Local AI-assistant config
 .claude/
 # Session preamble + phase discipline. Local-only: it points at
