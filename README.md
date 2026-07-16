@@ -18,19 +18,17 @@ $ upii ask "What did we agree with ICEYE on resolution and latency?"
 
 <!-- TODO: replace with demo.gif — 15s: ingest a folder, ask, cited answer, unplug wifi, ask again -->
 
-> **Status:** early preview (v0.5.0). The core capture, retrieval and ambient
-> stack works and is tested, but interfaces are still moving.
+> **Status:** early preview. The core capture, retrieval and ambient stack works
+> and is tested, but interfaces are still moving.
 >
 > **Known gaps — worth knowing before you judge the claims above:**
-> - **Ingestion is slow at scale.** Vectors are written once per document, so
->   throughput decays as the index grows: measured 486 docs/min at 250 documents,
->   falling to 88 docs/min by 3,500 on an M5 MacBook. Batching vector writes is the
->   fix. See [`bench/results/REPORT.md`](bench/results/REPORT.md).
-> - **The knowledge graph is not populated by ingestion yet.** Entity extraction
->   runs on your *query*, but no ingest path writes entities, so the **relational
->   signal currently contributes nothing** on a real corpus and
->   `upii knowledge --graph` renders an empty graph unless you run `upii demo`.
->   Retrieval today is effectively semantic + (recency-weighted) temporal.
+> - **The relational retrieval signal is off by default.** Ingestion now populates
+>   a local knowledge graph (people/orgs/projects) and `upii knowledge --graph`
+>   renders it, but on the retrieval eval, letting the relational signal re-rank is
+>   not yet net-positive (it can boost a chunk that merely *mentions* a query entity
+>   over a better semantic match), so its fusion weight defaults to 0. Retrieval
+>   today is effectively semantic + (recency-weighted) temporal; raise the signal
+>   per query with `upii ask --w-relational`. Tuning it to help is ongoing.
 
 ## Why UPII
 
@@ -39,7 +37,7 @@ Most RAG and "second brain" tools upload your corpus to someone else's cloud and
 - **100% local.** Embeddings ([sentence-transformers](https://www.sbert.net/) MiniLM), vector store ([LanceDB](https://lancedb.com/)), metadata (SQLite), and reasoning ([Ollama](https://ollama.com)) all run on-device. A remote LLM (Gemini) is optional and swappable — never required.
 - **Every answer is cited.** Answers are attributed to source chunks by content-addressed ID. Retrieval is verifiable, not just plausible.
 - **Deterministic, reproducible memory.** Chunk IDs are a pure function of content + config. Re-ingesting the same corpus reproduces 100% of chunk hashes — validated by tests and benchmarks. Citations stay stable across re-indexes; re-embedding is cache-safe.
-- **More than cosine similarity.** The Context Rehydrator is built to fuse three signals — semantic (vectors), temporal ("what was I working on last week"), and relational (a local knowledge graph of people, projects, orgs) — into one ranked context window, with per-signal contributions visible via `upii ask --debug`. Measured, not asserted: **Recall@10 = 0.958** on a committed labelled set ([reproduce it](eval/README.md)) — though today that score comes from the semantic signal alone (see [Status](#status)).
+- **More than cosine similarity.** The Context Rehydrator is built to fuse three signals — semantic (vectors), temporal ("what was I working on last week"), and relational (a local knowledge graph of people, projects, orgs, populated on ingest) — into one ranked context window, with per-signal contributions visible via `upii ask --debug`. Measured, not asserted: **Recall@10 = 0.958** on a committed labelled set ([reproduce it](eval/README.md)). The relational signal is live but weight-0 by default until it's tuned to help (see [Status](#status)); the score above is from semantic + temporal.
 - **Consent-gated ambient capture.** A filesystem watcher keeps memory current, but sources are explicitly enabled and ambient events pass through an approval inbox before entering durable memory.
 - **Graceful degradation.** No GPU, no API key, no internet? Retrieval still works and the system still answers.
 
@@ -125,13 +123,13 @@ python scripts/bench/scale_check.py --docs 500 --paras 60   # scale + hash-repro
 | Corpus stays on device | ✅ always | ❌ | ✅ |
 | Cited, chunk-level attribution | ✅ | varies | rarely |
 | Reproducible ingestion (stable hashes) | ✅ 100% | ❌ | ❌ |
-| Temporal + relational retrieval signals | ⚠️ temporal only today ([gap](#status)) | ❌ | ❌ cosine only |
+| Temporal + relational retrieval signals | ✅ both built; relational off by default ([status](#status)) | ❌ | ❌ cosine only |
 | Works fully offline | ✅ | ❌ | usually |
 | Consent-gated ambient capture | ✅ | ❌ | ❌ |
 
 ## Roadmap
 
-- **Knowledge-graph extraction on ingest** — populate the entity graph from your documents, so the relational signal and `upii knowledge --graph` work on your own corpus rather than only on `upii demo` data
+- **Tune the relational signal to net-positive** — it re-ranks on knowledge-graph entity overlap but currently isn't a clear win on the eval, so it ships weight-0; make it help before enabling by default
 - **Batched vector writes** — remove the per-document LanceDB append that caps ingestion throughput
 - **MCP server** — expose `upii_search` / `upii_ask` as local MCP tools so Claude, Cursor, and other agents can use your private, cited memory ([scope](docs/mcp_server_scope.md))
 - Mail + calendar connectors (consent-gated)

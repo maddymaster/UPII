@@ -40,6 +40,10 @@ sources.yaml
 .repro_demo/
 .phase1_demo/
 .phase3_demo/
+.phase4_demo/
+
+# Generated knowledge-graph render (phase4_demo.sh / `upii knowledge --graph`)
+graph.html
 
 # Phase 3 eval: isolated index rebuilt from the committed corpus (labels.json is committed)
 eval/.index/

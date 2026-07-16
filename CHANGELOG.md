@@ -8,13 +8,25 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-07-16
+
+Local knowledge graph: entities are extracted on ingest, the graph is populated and
+renderable, and entity extraction is measured on a labelled set.
+
 ### Added
+- **Local knowledge graph, populated on ingest (T1.4).** `upii ingest` now extracts
+  entities from each chunk and writes graph nodes + co-occurrence edges (two entities
+  co-occur when they share a chunk). Entity and edge ids are content-addressed, so an
+  independent re-ingest of a corpus reproduces the same graph, and re-ingest is a
+  no-op. `upii knowledge --graph --out graph.html` renders it as a self-contained,
+  offline, interactive HTML (vendored force-directed JS, no network) — nodes coloured
+  by type, edges weighted by co-occurrence. On a real corpus the graph is now
+  populated (previously it was empty unless you ran `upii demo`).
 - **Typed entity extraction** — `EntityExtractor` now emits `PERSON` / `ORG` /
   `PROJECT` (previously only `PROJECT` / `TOPIC`), with the full surface form as the
   name (`Project Omega`, not `Omega`; `Dr. Sivan` with the title). Precision-first,
   dependency-light rules: project triggers, title-cued and known-given-name people,
-  corporate-suffix and acronym organisations (with a tech-acronym stop-list). This
-  is the extractor half of local knowledge-graph work (T1.4).
+  corporate-suffix and acronym organisations (with a tech-acronym stop-list).
 - **Entity-extraction eval** (`eval/entities/`, `eval/run_entity_eval.py`) — a
   committed 500-document labelled fixture (deterministic generator + gold labels,
   fingerprint-guarded) scoring set-based precision / recall / F1 per type, written
@@ -29,12 +41,25 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   so `scripts/demo/phase3_demo.sh` is now byte-identical run to run (the generated
   answer was the one stochastic element). Covered by `tests/test_ask_no_answer.py`.
 
+### Changed
+- **Relational fusion weight now defaults to 0** (`config.fusion_weight_relational`).
+  With the knowledge graph now populated on ingest, the relational signal is live —
+  but on the retrieval eval it is not yet net-positive: boosting a chunk that merely
+  mentions a query entity (e.g. the product's own name) can displace a better
+  semantic hit, so Recall@1 dips 0.833 → 0.750 while Recall@10 holds at 0.958. Rather
+  than ship a ranking regression as the default, the weight is 0 until the signal is
+  tuned to help; it remains available per query via `upii ask --w-relational`. The
+  retrieval eval (`eval/results/REPORT.md`) is unchanged from v0.6.0 as a result.
+
 ### Fixed
 - Entity extractor: the org-suffix rule no longer swallows a preceding sentence's
   final word across a full stop (`...last Friday. Meridian Systems`), and a
   repeated entity now claims its text span so a bare-name rule cannot re-emit it as
   a separate false positive. Both were found by the new entity eval and are pinned
   by regression tests in `tests/test_entity_extraction.py`.
+- Entity extractor: common all-caps document/code markers (`TODO`, `FIXME`,
+  `README`, `NOTE`, …) and units/currencies are no longer misread as organisations,
+  so the knowledge graph from a real corpus stays clean.
 
 ## [0.6.0] - 2026-07-16
 
@@ -185,6 +210,7 @@ Deterministic, reproducible, content-addressed ingestion.
 - `docs/phase2_reproducibility_audit.md` — non-determinism audit of the chunker
   and ingest path: seven findings, each with its resolution.
 
-[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/maddymaster/UPII/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/maddymaster/UPII/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/maddymaster/UPII/releases/tag/v0.5.0

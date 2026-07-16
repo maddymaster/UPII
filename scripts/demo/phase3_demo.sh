@@ -60,9 +60,11 @@ echo "  Claim:  recall is a sensor-fusion problem, not a cosine-distance problem
 echo "  Proof:  a labelled eval over a committed corpus  ->  Recall@10 >= 0.85"
 echo
 echo "  Candour up front: of the three signals, only SEMANTIC moves the ranking"
-echo "  today. Relational has no data source yet (T1.4); temporal is a uniform"
-echo "  offset on a bulk-ingested corpus. STEP 3 predicts this; STEP 3b proves it."
-echo "  So Recall@10 below is an honest SEMANTIC number, measured — not asserted."
+echo "  by default. Relational is now LIVE (ingestion populates the knowledge"
+echo "  graph — see Phase 4) but its fusion weight defaults to 0, because on this"
+echo "  eval it is not yet net-positive; temporal is a uniform offset on a"
+echo "  bulk-ingested corpus. STEP 3 predicts this; STEP 3b proves it. So Recall@10"
+echo "  below is an honest SEMANTIC number, measured — not asserted."
 hr
 
 # 0. Clean slate + ingest the SAME corpus the eval scores, so the --debug table
@@ -118,8 +120,9 @@ echo "  Predict before we run it — the table will show:"
 echo "    • Semantic   — varies per row (this is what does the ranking)"
 echo "    • Temporal   — a flat 1.00->0.25 on every row. All 22 docs were ingested"
 echo "                   seconds ago, so recency is uniform; a constant can't reorder."
-echo "    • Relational — '·' (0.00) on every row. Ingestion does not extract entities"
-echo "                   yet (T1.4), so the knowledge graph is empty."
+echo "    • Relational — '·' (0.00) on every row: this query names no PERSON/ORG/"
+echo "                   PROJECT, so no entity fires. (The graph IS populated now —"
+echo "                   see phase4_demo — but its fusion weight also defaults to 0.)"
 echo "    • Dominant   — 'semantic' on every row."
 echo
 run upii ask "$QUERY" --debug --no-answer
