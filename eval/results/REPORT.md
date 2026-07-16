@@ -14,6 +14,21 @@ Scored 12 / 12 queries against the current retrieval path (semantic + temporal +
 | MRR | 0.903 |
 | nDCG@10 | 0.911 |
 
+## Configuration
+
+These numbers are a function of the config below, not the corpus alone. Change a fusion weight and the metrics move — so any number quoted from this report should be quoted with this snapshot.
+
+| Setting | Value |
+| --- | --- |
+| Fusion weight — semantic | 1 |
+| Fusion weight — temporal | 0.25 |
+| Fusion weight — relational | 0.5 |
+| Embedding model | `all-MiniLM-L6-v2` |
+| Chunk size / overlap | 1000 / 200 |
+| RAG min similarity | 0.5 |
+| RAG max chunks | 5 |
+| Config fingerprint | `ace9bad0c7d9d354…` |
+
 ## Per-query
 
 | Query | R@1 | R@5 | R@10 | RR | nDCG@10 | 1st hit |

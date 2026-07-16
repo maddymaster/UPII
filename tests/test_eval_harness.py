@@ -106,6 +106,29 @@ def test_mean():
     assert mean([]) == 0.0
 
 
+def test_config_snapshot_reflects_live_config(monkeypatch):
+    """The snapshot must read the live config, not a hardcoded copy.
+
+    If it ever drifts from what retrieval actually uses, every report silently
+    misattributes its numbers to the wrong weights — the exact failure the snapshot
+    exists to prevent.
+    """
+    from eval.run_eval import config_snapshot
+
+    before = config_snapshot()
+    assert before["fusion_weights"] == {
+        "semantic": 1.0,
+        "temporal": 0.25,
+        "relational": 0.5,
+    }, "defaults changed — update this pin and re-run the eval so REPORT.md matches"
+
+    # A changed weight must show up in the snapshot AND move the fingerprint.
+    monkeypatch.setattr("upii.core.config.config.fusion_weight_temporal", 0.9)
+    after = config_snapshot()
+    assert after["fusion_weights"]["temporal"] == 0.9
+    assert after["fingerprint"] != before["fingerprint"]
+
+
 def test_metrics_on_perfect_and_worst_rankings():
     rel = {"a", "b"}
     perfect = ["a", "b", "c", "d"]
