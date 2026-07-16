@@ -55,9 +55,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/datafrontier/upii"
-Repository = "https://github.com/datafrontier/upii"
-Issues = "https://github.com/datafrontier/upii/issues"
+Homepage = "https://github.com/maddymaster/UPII"
+Repository = "https://github.com/maddymaster/UPII"
+Issues = "https://github.com/maddymaster/UPII/issues"
 
 [project.scripts]
 upii = "upii.cli:app"
