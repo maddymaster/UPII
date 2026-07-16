@@ -8,7 +8,9 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
-Retrieval, knowledge-graph and packaging work sitting on `main` after `v0.5.0`.
+## [0.6.0] - 2026-07-16
+
+Retrieval, knowledge-graph, benchmarking and packaging work on top of `v0.5.0`.
 These are feature-level changes, so they release as `v0.6.0` — not as a patch.
 
 ### Added
@@ -155,5 +157,6 @@ Deterministic, reproducible, content-addressed ingestion.
 - `docs/phase2_reproducibility_audit.md` — non-determinism audit of the chunker
   and ingest path: seven findings, each with its resolution.
 
-[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/maddymaster/UPII/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/maddymaster/UPII/releases/tag/v0.5.0
