@@ -16,15 +16,37 @@ These are feature-level changes, so they release as `v0.6.0` — not as a patch.
   scored on three complementary signals (semantic, temporal, relational) and
   fused into one ranked context window; the fused score and its per-signal
   breakdown are attached to each result rather than ranking on cosine distance
-  alone.
-- **Knowledge-graph visualization** — `upii knowledge --graph` renders the local
-  entity graph to a self-contained HTML file (`--out`, default `graph.html`).
+  alone, and surfaced by `upii ask --debug`. **In this release the semantic signal
+  is the only one that moves the ranking:** the relational signal is implemented
+  and weighted but has no data source — ingestion does not yet extract entities
+  (T1.4) — so it contributes 0 on every query; the temporal signal is a per-chunk
+  ingest-recency score, which is uniform on a bulk-ingested corpus and so acts as a
+  constant offset. Ranking is therefore effectively semantic. See *Known
+  limitations*.
+- **Knowledge-graph visualization** — `upii knowledge --graph` renders whatever is
+  in the local entity graph to a self-contained HTML file (`--out`, default
+  `graph.html`). Ingestion does not currently populate the graph, so on a real
+  corpus it renders **empty**; only `upii demo` seeds nodes. See *Known
+  limitations*.
 - **Retrieval evaluation harness** (`eval/`) — scores the live retrieval path
   (`SearchEngine` → `ContextRehydrator`) against a committed labelled dataset,
   reporting Recall@{1,5,10}, MRR and nDCG@10. Current result: **Recall@10 =
-  0.958** against a target of ≥ 0.85. Regenerate with
-  `python eval/run_eval.py --rebuild`; exits non-zero below target, so it can
-  gate CI.
+  0.958** against a target of ≥ 0.85 — a retrieval-quality number, in which
+  ranking is effectively semantic (not fusion evidence). The report now carries a
+  **config snapshot + fingerprint**, so a quoted number travels with the fusion
+  weights and retrieval settings that produced it. Regenerate with
+  `python eval/run_eval.py --rebuild`; exits non-zero below target, so it can gate
+  CI.
+- **Performance benchmark harness** (`scripts/bench/make_corpus.py`,
+  `scripts/bench/benchmark.py`) → `bench/results/REPORT.md`. Deterministic corpus
+  (fixed seed), real pipeline, real MiniLM, live `SearchEngine().search()`.
+  Measured **627 docs/min** (target ≥ 500) and **retrieval p50 40 ms** (target
+  < 300) at 99,702 chunks on an Apple M5 MacBook. Emits a throughput-vs-index-size
+  curve. One command: `bash scripts/demo/phase1_demo.sh`.
+- **Recordable phase demos** — `scripts/demo/phase1_demo.sh` (throughput +
+  latency) and `scripts/demo/phase3_demo.sh` (ingest → `upii ask --debug` →
+  eval → Recall@10, with a control run that shows the non-semantic signals do not
+  affect ranking today).
 - **PyPI packaging** — `pyproject.toml` metadata, `[dev]` and `[overlay]` extras,
   and `.github/workflows/pypi-publish.yml` publishing on `v*` tags via Trusted
   Publishing (OIDC, no stored token).
@@ -32,6 +54,8 @@ These are feature-level changes, so they release as `v0.6.0` — not as a patch.
   ubuntu/macos/windows, plus a wheel build that smoke-tests `upii --help`.
 - `tests/test_version.py` — fails if `pyproject.toml` and `upii.__version__`
   drift apart.
+- `tests/test_batch_ingest.py` — batch ingest matches the per-document path
+  exactly, and a mid-batch edit cannot resurrect deleted vectors.
 - `docs/evidence.md` — running index of milestone → artifact → headline number.
 - `docs/mcp_server_scope.md` — scope for exposing `upii_search` / `upii_ask` as
   local MCP tools.
@@ -55,8 +79,25 @@ These are feature-level changes, so they release as `v0.6.0` — not as a patch.
   `python eval/run_eval.py --rebuild` produces.
 - `release.yml` builds on Python 3.11; it previously built on 3.9, which
   `requires-python` now excludes.
+- README documents the knowledge-graph gap in an explicit **Known gaps** block;
+  the previous text listed KG visualization and tri-signal fusion as working.
+- Project URLs in `pyproject.toml` (and this changelog's compare links) point at
+  the actual repository, `github.com/maddymaster/UPII`.
 
 ### Fixed
+- **Ingestion throughput — 145 → 627 docs/min (4.3×).** `LocalVectorStore.add()`
+  ran **once per document** (`open_table` + `table.add`), so every document
+  appended a new LanceDB version and per-append cost grew with the index —
+  throughput decayed from 486 to 88 docs/min as the corpus grew. New
+  `ingest_documents()` in `src/upii/ingestion/pipeline.py` batches vector writes
+  (one append per N documents) and skips the delete-before-add on non-forced
+  ingests; `upii ingest` is wired to it. This was algorithmic, not hardware: it is
+  what moved the Phase 1 ingestion metric from MISS to PASS. Phase 2's dedup / edit
+  / delete semantics and 100% hash reproducibility are unchanged (both paths share
+  one core; `scripts/bench/scale_check.py` still passes all 12 invariants).
+- `upii ask --debug` fusion table no longer truncates its signal columns to
+  ellipses on a normal-width terminal; the free-text chunk column yields width
+  instead.
 - `psutil` is declared as a dev dependency. `tests/perf/test_long_running.py`
   imported it without declaring it, so `pytest` failed at collection on a fresh
   clone.
@@ -65,6 +106,21 @@ These are feature-level changes, so they release as `v0.6.0` — not as a patch.
   context). Updated to the current mock-fallback contract — the system always
   responds — and pinned to the local path, so a developer with `GEMINI_API_KEY`
   exported no longer sends test prompts to the real API.
+
+### Known limitations
+- **The knowledge graph is not populated by ingestion.** Entity extraction runs on
+  your *query*, but no ingest path writes entities or edges, so:
+  - the **relational fusion signal contributes 0** on every query — retrieval is
+    effectively semantic in this release;
+  - **`upii knowledge --graph` renders empty** on a real corpus (only `upii demo`
+    seeds nodes).
+
+  The temporal signal is likewise a uniform recency offset on a bulk-ingested
+  corpus, so it cannot reorder results. `bash scripts/demo/phase3_demo.sh`
+  demonstrates exactly this (STEP 3b: zeroing the temporal and relational weights
+  leaves the ranking unchanged). Wiring entity extraction into the ingestion
+  pipeline is targeted for the next release (T1.4); it also requires replacing the
+  regex entity extractor, which cannot recover most entity names from a query.
 
 ## [0.5.0] - 2026-06-30
 
@@ -99,5 +155,5 @@ Deterministic, reproducible, content-addressed ingestion.
 - `docs/phase2_reproducibility_audit.md` — non-determinism audit of the chunker
   and ingest path: seven findings, each with its resolution.
 
-[Unreleased]: https://github.com/datafrontier/upii/compare/v0.5.0...HEAD
-[0.5.0]: https://github.com/datafrontier/upii/releases/tag/v0.5.0
+[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/maddymaster/UPII/releases/tag/v0.5.0
