@@ -19,15 +19,21 @@ def test_logger_setup(tmp_path):
     # Check handler count (File + Console)
     assert len(logger.handlers) == 2
 
+@patch("upii.analysis.llm.LocalLLM")
 @patch("upii.analysis.diagnostics.config")
 @patch("upii.analysis.diagnostics.DB")
 @patch("upii.analysis.diagnostics.LocalVectorStore")
 @patch("upii.analysis.diagnostics.ollama")
 @patch("upii.analysis.diagnostics.shutil")
 @patch("upii.analysis.diagnostics.os.path.exists")
-def test_doctor_checks(mock_exists, mock_shutil, mock_ollama, mock_vs, mock_db, mock_config):
+def test_doctor_checks(mock_exists, mock_shutil, mock_ollama, mock_vs, mock_db, mock_config, mock_llm):
     # Setup happy path
     mock_exists.return_value = True
+
+    # check_model() constructs a LocalLLM to detect mock-mode; without a running
+    # Ollama its __init__ would flip is_mock=True and short-circuit. Pin it False so
+    # the test exercises the real model-lookup path and is hermetic (no daemon).
+    mock_llm.return_value.is_mock = False
     
     mock_db_instance = mock_db.return_value
     mock_db_instance.get_connection.return_value.cursor.return_value.fetchone.return_value = ["2023-01-01"]

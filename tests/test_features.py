@@ -32,17 +32,23 @@ def test_persistence(tmp_path):
     ff = FeatureFlags()
     ff.msg_path = str(tmp_path / "features.yaml")
     ff._load()
-    
+
+    # add_watch_path stores os.path.abspath(path); use an already-absolute,
+    # platform-native path and compare against the normalised form so this holds on
+    # Windows too (where abspath("/tmp/test") becomes "D:\\tmp\\test").
+    watch = str(tmp_path / "watched")
+    expected = os.path.abspath(watch)
+
     ff.enable("ambient_memory")
-    ff.add_watch_path("/tmp/test")
-    
+    ff.add_watch_path(watch)
+
     # Check memory
     assert ff.is_enabled("ambient_memory") is True
-    assert "/tmp/test" in ff.get_watch_paths()
-    
+    assert expected in ff.get_watch_paths()
+
     # Check disk
     assert os.path.exists(ff.msg_path)
     with open(ff.msg_path) as f:
         data = yaml.safe_load(f)
         assert data["features"]["ambient_memory"] is True
-        assert "/tmp/test" in data["features"]["watch_paths"]
+        assert expected in data["features"]["watch_paths"]

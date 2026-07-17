@@ -1,9 +1,17 @@
 name: Publish to PyPI
 
-# Publishes on version tags (v0.5.1, v1.0.0, ...).
+# Publishes on version tags (v0.7.0, v1.0.0, ...).
 # Uses PyPI Trusted Publishing (OIDC) — no API token stored in GitHub.
-# One-time setup: PyPI -> Manage project 'upii' -> Publishing -> add GitHub
-# publisher (owner/repo, workflow: pypi-publish.yml, environment: pypi).
+#
+# One-time setup (FIRST release — the project does not exist on PyPI yet, so use a
+# "pending publisher", not "Manage project"):
+#   PyPI -> account -> Publishing -> Add a pending publisher, with EXACTLY:
+#     PyPI Project Name: upii
+#     Owner:             maddymaster
+#     Repository name:   UPII
+#     Workflow name:     pypi-publish.yml
+#     Environment name:  pypi        <- must match `environment: pypi` below
+# After the first successful publish it becomes a normal publisher under the project.
 
 on:
   push:

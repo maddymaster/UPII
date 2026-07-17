@@ -90,9 +90,11 @@ class LocalVectorStore:
             if where_clause:
                 query = query.where(where_clause)
             
-            results = query.to_pandas()
+            # to_list() (dicts) rather than to_pandas() so pandas is not a runtime
+            # dependency — it is heavy and was never declared, so a clean install
+            # would hit "No module named 'pandas'" the first time anyone searched.
             chunks = []
-            for _, row in results.iterrows():
+            for row in query.to_list():
                 # Reconstruct partial chunk
                 chunks.append(Chunk(
                     doc_hash=row['doc_id'],
@@ -124,11 +126,9 @@ class LocalVectorStore:
             query = table.search(query_vec).limit(limit)
             if where_clause:
                 query = query.where(where_clause)
-            results = query.to_pandas()
-
             out: List[Dict[str, Any]] = []
-            for _, row in results.iterrows():
-                dist = row["_distance"] if "_distance" in results.columns else None
+            for row in query.to_list():  # dicts, no pandas dependency
+                dist = row.get("_distance")
                 out.append(
                     {
                         "chunk": Chunk(
@@ -140,7 +140,7 @@ class LocalVectorStore:
                             embedding=None,
                         ),
                         "distance": float(dist) if dist is not None else None,
-                        "timestamp": row["timestamp"] if "timestamp" in results.columns else None,
+                        "timestamp": row.get("timestamp"),
                     }
                 )
             return out
