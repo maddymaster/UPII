@@ -1,8 +1,11 @@
 @echo off
 echo Building UPII v1.0 for Windows...
 
-:: Install PyInstaller if not present
-pip install pyinstaller
+:: Install PyInstaller, and pin setuptools<81: setuptools 81 removed
+:: pkg_resources.NullProvider, which PyInstaller's runtime hook needs. PyInstaller
+:: bundles the build-env's pkg_resources, so a newer setuptools crashes the frozen
+:: binary at launch. (setuptools' own warning recommends "pin to Setuptools<81".)
+pip install "setuptools<81" pyinstaller
 
 :: Clean previous builds (keep the committed upii.spec)
 if exist build rd /s /q build

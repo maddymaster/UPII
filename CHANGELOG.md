@@ -8,6 +8,31 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-07-17
+
+Patch: fixes a search-breaking packaging bug in 0.7.0 and turns CI green.
+
+### Fixed
+- **`upii search` / `upii ask` crashed on a clean install** with `No module named
+  'pandas'`. `LocalVectorStore` used LanceDB's `.to_pandas()`, but pandas was never
+  a declared dependency — it was only present locally via `requirements.txt`, so
+  every published install without pandas failed on the first query. Rewrote the two
+  result paths to use `.to_list()` (dicts), removing pandas as a runtime dependency
+  entirely rather than adding a heavy one. Verified with pandas fully blocked.
+- **CI is green across the 3.10–3.12 × ubuntu/macos/windows matrix.** Three tests
+  passed locally on 3.9 but failed on CI's clean runners:
+  - `test_ml` — the pandas bug above (masked locally where pandas was installed);
+  - `test_observability` — constructed a real `LocalLLM`, whose `__init__` reached a
+    running Ollama; now mocks it, so the test is hermetic;
+  - `test_features` (Windows only) — asserted a POSIX path survived
+    `os.path.abspath`; now uses a platform-native absolute path.
+- **Standalone binary build** (`release.yml` via `build.sh`/`build.bat`) crashed at
+  launch with `pkg_resources has no attribute 'NullProvider'`. setuptools 81 removed
+  `NullProvider`, which PyInstaller's runtime hook bundles and needs; the build now
+  pins `setuptools<81` (as setuptools' own deprecation warning recommends).
+- `pypi-publish.yml` setup comment corrected to the pending-publisher flow used for
+  a first release.
+
 ## [0.7.0] - 2026-07-16
 
 Local knowledge graph: entities are extracted on ingest, the graph is populated and
@@ -210,7 +235,8 @@ Deterministic, reproducible, content-addressed ingestion.
 - `docs/phase2_reproducibility_audit.md` — non-determinism audit of the chunker
   and ingest path: seven findings, each with its resolution.
 
-[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/maddymaster/UPII/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/maddymaster/UPII/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/maddymaster/UPII/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/maddymaster/UPII/releases/tag/v0.5.0

@@ -3,8 +3,12 @@ set -e
 
 echo "Building UPII v1.0 for macOS..."
 
-# Install PyInstaller if not present
-pip install pyinstaller
+# Install PyInstaller, and pin setuptools<81: setuptools 81 removed
+# pkg_resources.NullProvider, which PyInstaller's pyi_rth_pkgres runtime hook
+# needs. PyInstaller bundles the build-env's pkg_resources into the binary, so a
+# newer setuptools makes the frozen binary crash at launch. (setuptools' own
+# deprecation warning recommends "pin to Setuptools<81".)
+pip install "setuptools<81" pyinstaller
 
 # Clean previous builds (keep the committed upii.spec)
 rm -rf build dist
