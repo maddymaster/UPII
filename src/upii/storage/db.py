@@ -116,7 +116,21 @@ class DB:
                 total_docs_count INTEGER DEFAULT 0,
                 db_size_mb REAL DEFAULT 0.0
             );
+            """,
+            # MCP egress audit log — every tool call an MCP client makes is
+            # recorded locally (timestamp, tool, query, chunk ids returned). This
+            # is the seed of the future egress audit log; nothing leaves the box.
             """
+            CREATE TABLE IF NOT EXISTS mcp_call_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+                tool TEXT NOT NULL,
+                query TEXT,
+                chunk_ids JSON,
+                result_count INTEGER DEFAULT 0
+            );
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_mcp_log_ts ON mcp_call_log(ts);",
         ]
         
         try:
@@ -147,6 +161,93 @@ class DB:
                 source_type=row['source_type']
             )
         return None
+
+    def get_document_by_id(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Return ``{doc_id, source_path, source_type}`` for a doc, or ``None``.
+
+        Used by the MCP layer to map a retrieved chunk (whose ``doc_hash`` is the
+        document's ``doc_id``) back to its human-readable path and its source_type
+        for consent filtering. Read-only.
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT doc_id, source_path, source_type FROM documents WHERE doc_id = ?",
+                (doc_id,),
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_source_summary(self) -> List[Dict[str, Any]]:
+        """Per-source_type transparency rollup for ``upii_list_sources``.
+
+        Returns ``[{source, doc_count, chunk_count, last_updated}]`` ordered by
+        source name. ``last_updated`` is the most recent of ``modified_at`` /
+        ``ingestion_time`` / ``created_at`` across the source's documents. Read-only.
+        """
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT d.source_type AS source,
+                       COUNT(DISTINCT d.doc_id) AS doc_count,
+                       COUNT(c.chunk_id) AS chunk_count,
+                       MAX(COALESCE(d.modified_at, d.ingestion_time, d.created_at)) AS last_updated
+                FROM documents d
+                LEFT JOIN chunks c ON c.doc_id = d.doc_id
+                GROUP BY d.source_type
+                ORDER BY d.source_type
+                """
+            )
+            return [dict(row) for row in cur.fetchall()]
+        finally:
+            conn.close()
+
+    def log_mcp_call(self, tool: str, query: Optional[str], chunk_ids: List[str]) -> None:
+        """Append one MCP tool call to the local egress audit log.
+
+        Best-effort: a logging failure must never fail the tool call itself.
+        """
+        try:
+            conn = self.get_connection()
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO mcp_call_log (tool, query, chunk_ids, result_count) VALUES (?, ?, ?, ?)",
+                (tool, query, json.dumps(list(chunk_ids)), len(chunk_ids)),
+            )
+            conn.commit()
+            conn.close()
+        except sqlite3.Error:
+            pass
+
+    def get_mcp_call_log(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Most-recent MCP tool calls (newest first) for ``upii metrics`` / tests."""
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT id, ts, tool, query, chunk_ids, result_count "
+                "FROM mcp_call_log ORDER BY id DESC LIMIT ?",
+                (limit,),
+            )
+            out = []
+            for row in cur.fetchall():
+                d = dict(row)
+                try:
+                    d["chunk_ids"] = json.loads(d["chunk_ids"]) if d["chunk_ids"] else []
+                except (TypeError, ValueError):
+                    d["chunk_ids"] = []
+                out.append(d)
+            return out
+        finally:
+            conn.close()
 
     def upsert_document(self, doc: Document, doc_id: str) -> str:
         conn = self.get_connection()

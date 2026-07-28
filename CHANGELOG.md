@@ -8,6 +8,33 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Added
+- **Local MCP server (`upii mcp serve`).** Exposes UPII's memory to any
+  MCP-compatible client (Claude Desktop, Claude Code, Cursor) as three read-only
+  tools — `upii_search`, `upii_ask`, `upii_list_sources` — over stdio, in-process
+  against the existing retrieval stack. No corpus byte leaves the machine. Built on
+  the official `mcp` Python SDK, behind a new optional dependency group:
+  `pip install "upii[mcp]"`. New module `src/upii/mcp/` (config, service, server, cli).
+- **Consent is first-class.** The server is **off by default** (`upii mcp enable` /
+  `disable` / `status`, persisted to a dedicated `mcp.yaml`). Per-tool scopes and an
+  `expose_sources` allowlist (distinct from local-CLI visibility) gate every call;
+  sources disabled in the ambient registry are invisible; a chunk whose source isn't
+  exposed never reaches the client. Every tool call is logged locally to a new
+  `mcp_call_log` table (the seed of the egress audit log), surfaced in `upii metrics show`.
+- **Docs:** `docs/mcp_setup.md` — one-step client config for Claude Desktop, Claude
+  Code, and Cursor, plus the consent model.
+- Tests: `tests/test_mcp_server.py` drives all three tools end-to-end via the MCP
+  client SDK against a seeded DB, and covers consent invisibility, determinism
+  (same corpus + query ⇒ identical chunk ids), the disabled-tool error path, config
+  round-trip, and local call logging.
+
+### Changed
+- `Config.load` now ignores unknown top-level keys instead of raising, so adding an
+  `mcp:` block to `.upii_config.yaml` (per the setup docs) can't break startup.
+- New read-only DB helpers: `get_document_by_id`, `get_source_summary`,
+  `log_mcp_call`, `get_mcp_call_log`. The MCP layer never writes to SQLite/LanceDB
+  beyond the local call log.
+
 ## [0.7.1] - 2026-07-17
 
 Patch: fixes a search-breaking packaging bug in 0.7.0 and turns CI green.

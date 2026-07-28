@@ -84,6 +84,20 @@ class MetricsCollector:
         finally:
             conn.close()
 
+    def log_mcp_call(self, tool: str, query: Optional[str], chunk_ids: list) -> None:
+        """Record one MCP tool call to the local egress audit log (best-effort)."""
+        try:
+            self.db.log_mcp_call(tool, query, chunk_ids or [])
+        except Exception as e:
+            logger.error(f"Failed to log MCP call: {e}")
+
+    def get_mcp_calls(self, limit: int = 50) -> list[Dict[str, Any]]:
+        """Recent MCP tool calls (newest first) for transparency."""
+        try:
+            return self.db.get_mcp_call_log(limit=limit)
+        except Exception:
+            return []
+
     def get_history(self, limit: int = 7) -> list[Dict[str, Any]]:
         """Retrieve recent metrics."""
         conn = self.db.get_connection()
