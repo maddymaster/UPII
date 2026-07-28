@@ -8,6 +8,12 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-07-28
+
+Phase close: **the MCP bridge is live.** UPII is now a local, consent-gated MCP
+server — a standard MCP client (Claude Desktop, Claude Code, Cursor) connects over
+stdio and receives cited chunks from a private corpus, 100% on-device.
+
 ### Added
 - **Local MCP server (`upii mcp serve`).** Exposes UPII's memory to any
   MCP-compatible client (Claude Desktop, Claude Code, Cursor) as three read-only
@@ -23,6 +29,9 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   `mcp_call_log` table (the seed of the egress audit log), surfaced in `upii metrics show`.
 - **Docs:** `docs/mcp_setup.md` — one-step client config for Claude Desktop, Claude
   Code, and Cursor, plus the consent model.
+- **Demo:** `scripts/demo/phaseM_demo.sh` — one command: ingest → enable → a scripted
+  MCP client spawns `upii mcp serve`, calls the tools, and prints the cited chunks it
+  received, then shows the local egress audit log. Recordable.
 - Tests: `tests/test_mcp_server.py` drives all three tools end-to-end via the MCP
   client SDK against a seeded DB, and covers consent invisibility, determinism
   (same corpus + query ⇒ identical chunk ids), the disabled-tool error path, config
