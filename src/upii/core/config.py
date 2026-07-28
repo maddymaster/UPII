@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import yaml
 
 @dataclass
@@ -58,8 +58,12 @@ class Config:
     def load(cls, config_path: str = ".upii_config.yaml") -> "Config":
         if os.path.exists(config_path):
             with open(config_path, "r") as f:
-                data = yaml.safe_load(f)
-                return cls(**data)
+                data = yaml.safe_load(f) or {}
+            # Tolerate keys this dataclass doesn't know about (e.g. an `mcp:` block
+            # a user adds per docs/mcp_setup.md) rather than crashing startup with a
+            # TypeError. MCP settings have their own loader (upii.mcp.config).
+            known = {f.name for f in fields(cls)}
+            return cls(**{k: v for k, v in data.items() if k in known})
         return cls()
 
 config = Config.load()

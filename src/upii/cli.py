@@ -14,6 +14,10 @@ logger = logging.getLogger("upii.cli")
 app = typer.Typer()
 console = Console()
 
+# Local MCP server subcommands (`upii mcp serve|enable|disable|status`).
+from upii.mcp.cli import mcp_app
+app.add_typer(mcp_app, name="mcp")
+
 
 def _print_fusion_debug(results, weights: Optional[dict]) -> None:
     """Render the per-signal fusion breakdown for `upii ask --debug`.
@@ -696,7 +700,21 @@ def metrics(
                     f"{r['db_size_mb']:.2f}"
                 )
             console.print(table)
-            
+
+            # MCP egress audit: recent tool calls MCP clients made (local-only log).
+            mcp_calls = collector.get_mcp_calls(limit=10)
+            if mcp_calls:
+                mtable = Table(title="Recent MCP tool calls (egress audit)")
+                mtable.add_column("Time", style="dim")
+                mtable.add_column("Tool", style="cyan")
+                mtable.add_column("Query")
+                mtable.add_column("Chunks", justify="right")
+                for c in mcp_calls:
+                    q = (c.get("query") or "")
+                    q = (q[:40] + "…") if len(q) > 40 else q
+                    mtable.add_row(str(c["ts"]), c["tool"], q, str(c["result_count"]))
+                console.print(mtable)
+
     elif action == "export":
         rows = collector.export_all()
         data = [dict(r) for r in rows]
