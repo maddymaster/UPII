@@ -10,6 +10,7 @@ from a committed command — the commands are listed below the table.
 | 2 | Deterministic, reproducible, content-addressed ingestion | [`bench/results/scale_REPORT.md`](../bench/results/scale_REPORT.md), [`docs/phase2_reproducibility_audit.md`](phase2_reproducibility_audit.md) | **100% chunk-hash reproducibility** (dedup · edit · delete validated) | `v0.5.0` |
 | 3 | Multi-signal retrieval (Context Rehydrator v2) | [`eval/results/REPORT.md`](../eval/results/REPORT.md) | **Recall@10 = 0.958** (target ≥ 0.85) — semantic + temporal; relational live but weight-0 by default | `v0.6.0` |
 | 4 | Local knowledge graph — extraction (T1.4) + populated-on-ingest graph + viz | [`eval/results/entity_REPORT.md`](../eval/results/entity_REPORT.md) | **Entity precision = 1.000** (target ≥ 0.80) · recall 0.920 on a 500-doc labelled set; `upii knowledge --graph` renders the ingested graph | `v0.7.0` |
+| MCP | UPII as a local MCP server — three read-only tools, consent-gated, in-process | [`scripts/demo/phaseM_demo.sh`](../scripts/demo/phaseM_demo.sh), [`tests/test_mcp_server.py`](../tests/test_mcp_server.py), [`docs/mcp_setup.md`](mcp_setup.md) | **MCP bridge live** — a standard MCP client → `upii mcp serve` (stdio) → cited chunks, **0 bytes egress**; consent off-by-default; 12 E2E tests (131 total) | `v0.8.0` |
 
 ## Regenerating each number
 
@@ -29,6 +30,10 @@ python eval/run_eval.py --rebuild                           # -> eval/results/RE
 # Phase 4 — knowledge graph
 bash scripts/demo/phase4_demo.sh                            # recordable: ingest -> entity eval -> render graph.html
 python eval/run_entity_eval.py --rebuild                    # -> eval/results/entity_REPORT.md (non-zero exit if precision < 0.80)
+
+# MCP — local MCP server (needs Python >= 3.10 with the extra: pip install "upii[mcp]")
+bash scripts/demo/phaseM_demo.sh                            # recordable: ingest -> serve -> scripted client -> cited chunks -> audit log
+pytest tests/test_mcp_server.py -q                          # 12 E2E tests via the MCP client SDK (consent, determinism, scope, logging)
 ```
 
 ## Notes
@@ -63,3 +68,20 @@ python eval/run_entity_eval.py --rebuild                    # -> eval/results/en
   at 0.958). So its fusion weight ships at **0** (available via `upii ask
   --w-relational`); the Phase 3 retrieval number above is unchanged. Making it help
   is the honest next step, not a closed claim.
+- **MCP** — "MCP bridge live" is not a benchmark number; it is a *capability* proven
+  by an end-to-end run and an E2E test suite. `scripts/demo/phaseM_demo.sh` spawns the
+  real `upii mcp serve` as a subprocess and drives it with the official MCP client SDK
+  over stdio; the client receives cited chunks from the seeded corpus, and every call
+  is written to the on-device egress audit log (`mcp_call_log`). Excerpt from that log
+  after one demo run (chunk ids truncated):
+
+  ```
+  2026-07-28 05:19:35  upii_search  n=3  q='Where does UPII store its vectors and docume…'  chunks=[8b2a3e84…, f580cc67…, e8292a0c…]
+  2026-07-28 05:19:42  upii_ask     n=5  q='Where does UPII store its vectors and docume…'  chunks=[8b2a3e84…, f580cc67…, e8292a0c…]
+  ```
+
+  The server is **read-only** and **off by default**; exposure is gated by per-tool
+  scopes and an `expose_sources` allowlist (distinct from local-CLI visibility), and a
+  source disabled in `upii sources` is invisible to MCP. Consent invisibility,
+  determinism (same corpus + query ⇒ identical chunk ids), and the disabled-tool error
+  path are each covered by `tests/test_mcp_server.py`. No corpus byte leaves the device.
