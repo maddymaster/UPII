@@ -67,6 +67,15 @@ class LocalLoader:
                 dirs.sort()
                 for file in sorted(files):
                     full_path = os.path.join(root, file)
+                    # A mailbox is never swept up by a directory ingest. It holds
+                    # third-party correspondence, so it enters durable memory only
+                    # when the user names the file explicitly.
+                    if os.path.splitext(file)[1].lower() == '.mbox':
+                        logger.info(
+                            "Skipping mailbox %s: ingest mail by naming the file "
+                            "explicitly (`upii ingest %s`).", full_path, full_path
+                        )
+                        continue
                     yield from self._process_file(full_path)
         else:
             yield from self._process_file(path)
@@ -77,25 +86,42 @@ class LocalLoader:
             return # Skip unsupported
 
         if ext == '.mbox':
-             # Special handling for mbox (yields multiple docs)
-             from upii.ambient.email_connector import EmailConnector
-             for email_data in EmailConnector.parse_mbox(file_path):
-                 if not email_data['content'].strip(): continue
-                 
-                 # Hash content for dedup
-                 content_hash = hashlib.sha256(email_data['content'].encode('utf-8')).hexdigest()
-                 
-                 yield Document(
-                    path=str(Path(file_path).resolve()), # We map all emails to the mbox file path? Or virtual path?
-                    # Virtual path is better for pointing to specific email, but system expects real path.
-                    # We stick to file path but the content is different.
+            # A mailbox is a container of many documents, not one document, so each
+            # message gets its own VIRTUAL path -- "<mbox>#<message-key>". The
+            # incremental-ingest rules in ingestion/pipeline.py key on the path:
+            # mapping every message to the mbox's own path made
+            # same-path-different-hash look like an edit, so each message purged
+            # the one before it and only the last survived.
+            from upii.ambient.email_connector import EmailConnector
+            mbox_path = str(Path(file_path).resolve())
+            for email_data in EmailConnector.parse_mbox(file_path):
+                content = email_data['content']
+                if not content.strip():
+                    continue
+
+                content_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+                # Message identity, in preference order. A Message-ID is stable
+                # across edits, so an edited message replaces its own prior
+                # version. Falling back to the content hash keeps the path stable
+                # when messages are reordered (an ordinal index would not), at the
+                # cost of an edited message reading as a new one.
+                msg_id = (email_data.get('email_id') or '').strip().strip('<>')
+                msg_key = msg_id or content_hash[:16]
+
+                yield Document(
+                    path=f"{mbox_path}#{msg_key}",
                     content_hash=content_hash,
-                    content=email_data['content'],
-                    created_at=datetime.now(), # Ideally parse email_data['date']
+                    content=content,
+                    created_at=datetime.now(),  # provenance, never part of a hash
                     source_type="email",
-                    metadata={"sender": email_data['sender'], "subject": email_data['title']}
-                 )
-             return
+                    metadata={
+                        "sender": email_data['sender'],
+                        "subject": email_data['title'],
+                        "mbox_path": mbox_path,
+                    },
+                )
+            return
 
         try:
             content_hash = self.compute_file_hash(file_path)

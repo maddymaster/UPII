@@ -8,6 +8,60 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-08
+
+Patch release: **ingesting a mailbox silently destroyed all but the last message.**
+Found while surveying the ambient connectors ahead of Phase 6, reproduced against the
+real CLI, and fixed with regression cover before any Phase 6 work starts.
+
+### Fixed
+
+- **Mailbox ingest kept only the last message (data loss).** `LocalLoader` mapped every
+  message in an `.mbox` to the mbox file's own path, each with its own content hash.
+  The incremental-ingest rule in `ingestion/pipeline.py` (reproducibility-audit finding
+  F3) reads same-path-different-hash as "this file was edited" and purges the prior
+  version — so each message deleted the one before it. A 3-message mailbox left **1**
+  document in durable memory while the CLI reported `Processed 3 … Errors 0`.
+  Each message now gets its own virtual path, `<mbox>#<message-key>`, keyed on its
+  `Message-ID` where present and otherwise on its content hash (stable under
+  reordering, unlike an ordinal index). Dedup, edit-replacement and per-message
+  attribution now behave as they do for ordinary files.
+- **Mail was swept up by directory ingest (consent).** `.mbox` was an accepted
+  extension during the recursive walk, so `upii ingest ~/Documents` pulled whole
+  mailboxes — full bodies and senders — into durable memory without the user ever
+  naming them. A directory ingest now skips mailboxes and logs why; naming the file
+  explicitly (`upii ingest inbox.mbox`) still works unchanged.
+
+### Added
+
+- `tests/test_ingest_mbox.py` — 7 regression tests over the real SQLite + LanceDB
+  stack: every message survives; per-message virtual paths; re-ingest is a no-op;
+  editing one message replaces only that message; missing `Message-ID` still yields
+  distinct, reorder-stable keys; a folder ingest yields no mail; naming the mailbox
+  explicitly still does. 6 of the 7 fail against 0.8.0. Suite: **126 passed, 1 skipped**.
+
+### Known limitations
+
+- Mail reaching durable memory through an explicit `upii ingest` is **not** yet routed
+  through `staging.db` and the approval inbox, and sensitive-field minimisation is not
+  yet applied. Both are Phase 6 (ambient connectors) scope. `CalendarConnector.process_file`
+  still writes directly to `upii.db`; it has no callers today and is rewired in Phase 6.
+- `remove_document(path=<mbox>)` matches paths exactly, so it does not remove the
+  messages ingested from that mailbox. Per-message removal works.
+
+### Docs
+
+- `docs/tranche1_completion_report.md` — Tranche-1 completion report for the KITS
+  reviewer (grant Milestone 6 / Phase 5). One section per Tranche-1 milestone
+  (Phases 1, 2, 3, 4, 4b) with the Annexure-1 milestone and Completion-Demonstration
+  wording quoted verbatim, the committed artifact, the headline number, the version it
+  shipped in, and a plain-English summary. Consolidated flag table (F-1…F-10) states
+  every internal stretch target that was missed with the honest measured number and the
+  conservative MoA baseline it does satisfy — including the Phase 3 fusion-uplift gap
+  (0.000 over semantic-only) and the unfiled provisional patent. Appendix A is the
+  demo-video recording checklist; Appendix B the regeneration commands; Appendix C a
+  version/tag ledger (notes that no `v0.6.0` git tag exists).
+
 ## [0.8.0] - 2026-07-28
 
 Phase close: **the MCP bridge is live.** UPII is now a local, consent-gated MCP
