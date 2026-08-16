@@ -22,6 +22,7 @@
 - [ ] `upii.cli ask` response time < 5 seconds
 
 ## 5. Artifacts
-- [ ] `demo_script.md` available
 - [ ] `qa_plan.md` available
-- [ ] `walkthrough.md` updated
+- [ ] `tranche1_jury_walkthrough.md` still matches the CLI (commands and flags verified)
+- [ ] `CHANGELOG.md` has a dated section for this version
+- [ ] `evidence.md` headline numbers match the committed REPORTs
