@@ -61,18 +61,12 @@ ELEVATE_Nxt_Grant/
 # Superseded internal duplicates of docs/, plus release-manager notes
 project_docs/
 
-# AI build prompts / internal engineering scripts
-CLAUDE_CODE_PROMPTS_*.md
-
 # Business strategy, GTM, product-requirements
 STRATEGY_grant_and_gtm.md
 UPII_PRD.md
 
-# Status walkthroughs & presentation scripts
-docs/grant_officer_demo_walkthrough.md
+# Status walkthroughs (point-in-time snapshots, superseded by the jury walkthrough)
 docs/walkthrough*.md
-docs/jury_progress_demo.md
-docs/demo_script.md
 
 # Milestone scorecard (the technical audit it summarises is kept:
 # docs/phase2_reproducibility_audit.md)
@@ -90,12 +84,6 @@ website/
 
 # Paper drafts (keep private until published; move to internal repo or un-ignore at submission)
 paper/
-
-# Local AI-assistant config
-.claude/
-# Session preamble + phase discipline. Local-only: it points at
-# ELEVATE_Nxt_Grant/PHASE_STATUS.md, which is itself untracked.
-CLAUDE.md
 
 # Debug / scratch files
 debug_*.py
