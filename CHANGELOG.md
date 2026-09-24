@@ -8,6 +8,26 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/demo/phase3_demo.sh` — closing text and header comment no longer claim the
+  relational signal "has no data source (T1.4)". Since Phase 4 it reads a real graph;
+  it ships at weight 0 because enabling it was not net-positive on the retrieval eval.
+  The "Next" line now points at Tranche-2 relational-signal tuning.
+- `pyproject.toml` — pin `mcp>=1.2.0,<2` (optional `mcp` extra and `dev`). mcp 2.0
+  removed `mcp.shared.memory.create_connected_server_and_client_session`, which
+  `tests/test_mcp_server.py` uses.
+
+### Docs
+
+- `docs/tranche1_jury_walkthrough.md` — re-verified on the recording machine
+  (Python 3.12 clean clone at `~/Developer/UPII`): corrected the machine string
+  (M5 Max, 18-core CPU, 48 GB), flagged that the committed Phase-1 `REPORT.md` was
+  measured on a different machine (10-core M5, 16 GB) and must be re-run or narrated as
+  such, added offline env vars (`HF_HUB_OFFLINE` etc.) for a no-egress take, updated
+  measured script runtimes and pacing, test count (138 passed), and a Python 3.10–3.12
+  clean-clone note.
+
 ## [0.8.1] - 2026-08-08
 
 Patch release: **ingesting a mailbox silently destroyed all but the last message.**

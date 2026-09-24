@@ -47,7 +47,7 @@ overlay = [
     "pynput>=1.7",            # Cmd+Shift+K capture overlay (desktop only)
 ]
 mcp = [
-    "mcp>=1.2.0",             # official MCP Python SDK (stdio server); local-only, optional
+    "mcp>=1.2.0,<2",          # official MCP Python SDK (stdio server); local-only, optional
 ]
 dev = [
     "pytest>=7.4",
@@ -55,7 +55,8 @@ dev = [
     "pyinstaller",            # standalone binary builds
     "sqlite-utils>=3.36",     # DB inspection during development
     "tomli; python_version < '3.11'",   # tests/test_version.py; tomllib is stdlib from 3.11
-    "mcp>=1.2.0",             # tests/test_mcp_server.py (drives the server via the client SDK)
+    "mcp>=1.2.0,<2",          # tests/test_mcp_server.py (drives the server via the client SDK)
+                              # <2: mcp 2.0 dropped mcp.shared.memory.create_connected_server_and_client_session
 ]
 
 [project.urls]

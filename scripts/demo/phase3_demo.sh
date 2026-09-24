@@ -11,7 +11,9 @@
 #
 # ── Honest by construction ───────────────────────────────────────────────────────
 # Today only the SEMANTIC signal actually moves the ranking. The relational signal
-# has no data source yet (ingestion does not extract entities — that is T1.4), and
+# reads a real graph (ingestion extracts entities as of Phase 4 / T1.4) but ships at
+# weight 0, because enabling it was not net-positive on this eval — it can promote a
+# chunk that merely mentions a query entity over a better semantic match. And
 # the temporal signal is a uniform recency offset on a bulk-ingested corpus. This
 # demo PREDICTS those zeros before showing them (STEP 3), then PROVES they don't
 # affect ranking with a control run (STEP 3b). Recall@10 = 0.958 is therefore a
@@ -153,10 +155,12 @@ echo "     • Retrieval quality: Recall@10 = 0.958 vs a >= 0.85 target — meas
 echo "       reproducible, deterministic. This is a SEMANTIC-ranking number."
 echo "  ── What it does NOT yet prove ──"
 echo "     • That fusion beats semantic-alone. STEP 3b shows it's currently a tie:"
-echo "       relational has no data source (T1.4), temporal is a uniform offset."
-echo "  ── Next (Phase 4 / T1.4) ──"
-echo "     • Extract entities on ingest so the relational signal has a graph to"
-echo "       fuse against — then re-run this demo and watch the control diverge."
+echo "       temporal is a uniform offset on a bulk-ingested corpus, and the"
+echo "       relational signal ships at weight 0 — it HAS a graph to read since"
+echo "       Phase 4 (T1.4), but enabling it was not net-positive on this eval."
+echo "  ── Next (Tranche 2) ──"
+echo "     • Tune the relational signal so it earns a non-zero weight, rather"
+echo "       than shipping a rank-1 precision regression as the default."
 echo
 echo "  Full report (with config snapshot): eval/results/REPORT.md"
 echo "  Re-run anywhere with: bash scripts/demo/phase3_demo.sh"
