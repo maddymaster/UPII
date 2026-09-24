@@ -88,3 +88,29 @@ paper/
 # Debug / scratch files
 debug_*.py
 verification_output.txt
+
+# ---------------------------------------------------------------------------
+# Added 2026-09-24 — repo is PUBLIC. Internal material must never be tracked.
+# Existing entries above were already clean; these close the remaining gaps.
+# NOTE: .gitignore does NOT untrack an already-committed file, and does NOT
+# remove it from history. Both were handled explicitly alongside this change.
+# ---------------------------------------------------------------------------
+
+# Grant / jury / investor material
+docs/tranche1_jury_walkthrough.md
+docs/tranche1_completion_report.md
+docs/jury_progress_demo.md
+docs/demo_script.md
+ELEVATE_NxT_PITCH_PREP.md
+GRAND_FINALE_PITCH_PREP.md
+Pitch_Script_GrandFinale.md
+*.pptx
+
+# Demo / recording scripts (internal: the tranche-1 recording driver and the
+# per-milestone scripts it delegates to)
+scripts/demo/
+
+# Measured-result reports (regenerable; kept local)
+bench/results/*
+!bench/results/.gitkeep
+eval/results/
