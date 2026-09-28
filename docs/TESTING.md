@@ -158,21 +158,24 @@ These are the performance and quality claims. Both are one command.
 
 **Retrieval quality** (fast, ~1 min):
 ```bash
-bash scripts/demo/phase3_demo.sh
+python eval/run_eval.py --rebuild
 ```
-**What you should see:** it ends with `Recall@10: 0.958   (target ≥ 0.85)  -> PASS`.
-This demo also walks through the fusion table and a control run — it's the clearest
-picture of what the retrieval layer does and doesn't do today.
+**What you should see:** it ends with `Recall@10: 0.958   (target ≥ 0.85)  -> PASS`,
+and exits non-zero if the metric falls below target. To see the per-signal fusion
+contributions behind a single ranking, add `--debug` to a query:
+`upii ask "<your query>" --debug --no-answer`.
 
 **Ingestion throughput + latency** (slower — builds a ~100k-chunk index):
 ```bash
-# Full run is ~15–30 min. For a 2-minute smoke instead:
-DOCS=300 bash scripts/demo/phase1_demo.sh
+# Full ~100k-chunk run is ~5 min on an M5 Max. For a ~15-second smoke instead:
+python scripts/bench/make_corpus.py --docs 300 --paras 60 --out /tmp/upii-bench-corpus
+python scripts/bench/benchmark.py --corpus /tmp/upii-bench-corpus --paras 60
 ```
 **What you should see:** ingestion docs/min and retrieval p50 ms, each marked
 PASS/MISS against its target. On a smaller/older machine the throughput number
-will be lower than our reference (627 docs/min on an M5 laptop) — that's fine and
-useful; **please report your machine and the number you got.**
+will be lower than our reference (2,032 docs/min on an M5 Max, 18 cores / 48 GB;
+an earlier 10-core M5 laptop measured 627) — that's fine and useful; **please
+report your machine and the number you got.**
 
 ---
 

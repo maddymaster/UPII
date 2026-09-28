@@ -147,7 +147,8 @@ upii ingest .\demo_dataset --recursive
 upii ask "What is the budget?"
 ```
 
-For a deterministic re-ingestion demo, see `scripts/demo/repro_demo.sh`.
+For a deterministic re-ingestion check, run
+`pytest tests/test_chunk_determinism.py tests/test_incremental.py -q`.
 
 ---
 

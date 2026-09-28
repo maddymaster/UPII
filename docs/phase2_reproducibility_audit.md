@@ -40,4 +40,6 @@ The goal: chunk boundaries and chunk hashes must be a **pure function of `(file 
 - `tests/test_chunk_determinism.py` — ingest a fixed fixture twice **and** in shuffled file order; assert identical chunk hashes both times.
 - `tests/test_incremental.py` — unchanged re-ingest is a no-op; edit re-chunks only changed chunks (untouched hashes stable); delete removes chunks/vectors/metadata. Asserts counts in `upii.db` and the vector store.
 - `scripts/bench/scale_check.py` → `bench/results/scale_REPORT.md` — drives a large corpus through ingest → re-ingest (no-ops) → batch edits → deletes, proving 100% hash reproducibility and correct dedup/edit/delete counts.
-- `scripts/demo/repro_demo.sh` — recordable terminal demo of re-ingestion to an identical state.
+- `upii ingest <dir> --recursive` run twice over the same directory — the second pass
+  reports every file `Skipping (Unchanged)` and leaves the chunk set byte-identical;
+  the two tests above assert exactly this, in fixed and shuffled file order.

@@ -112,8 +112,8 @@ Every write path — `ingest`, watch-approve, demo seed — flows through a sing
 Reproduce it yourself:
 
 ```bash
-bash scripts/demo/repro_demo.sh                          # ingest → re-ingest → identical state
-python scripts/bench/scale_check.py --docs 500 --paras 60   # scale + hash-reproducibility report
+pytest tests/test_chunk_determinism.py tests/test_incremental.py -q   # ingest → re-ingest → identical hashes
+python scripts/bench/scale_check.py --docs 500 --paras 60              # scale + hash-reproducibility report
 ```
 
 ## How UPII compares

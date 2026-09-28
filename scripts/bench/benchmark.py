@@ -333,12 +333,13 @@ def write_report(path, info, args, n_docs, n_chunks, t_ingest, docs_per_min, lat
         "- The embedding model is loaded before any timer starts, so the one-time",
         "  model-load cost is excluded from throughput (it is a startup cost, not a",
         "  per-document one).",
-        "- Ingestion writes vectors **once per document** "
-        "  (`LocalVectorStore.add` -> `open_table` + `table.add` per doc), so each",
-        "  document appends a new LanceDB version. Both the per-append cost and",
-        "  resident memory grow with the number of documents already indexed; that is",
-        "  the mechanism behind any decay in the curve above.",
-        "- Reproduce with one command: `bash scripts/demo/phase1_demo.sh`",
+        "- Ingestion goes through `pipeline.ingest_documents`, the same batched path",
+        "  `upii ingest` uses: vectors are appended to LanceDB once per batch of",
+        "  accumulated chunks (`batch_chunks`), not once per document. Any decay in",
+        "  the curve above is measured, not explained, by this report.",
+        "- Reproduce: `python scripts/bench/make_corpus.py --docs 7750 --paras 60 "
+        "--out <dir>`, then `python scripts/bench/benchmark.py --corpus <dir> "
+        "--paras 60`.",
         "",
     ]
     Path(path).write_text("\n".join(lines), encoding="utf-8")

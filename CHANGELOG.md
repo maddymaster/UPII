@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
+> **Note on `scripts/demo/*.sh`.** Entries below refer to the per-milestone demo
+> scripts. Those are internal recording tooling and are **not distributed** with this
+> repository. Every number they produced is reproducible from the public entry points
+> instead — see [`docs/evidence.md`](docs/evidence.md) for the exact commands. The
+> historical entries are left unedited as a record of what changed when.
+
 ## [Unreleased]
 
 ### Fixed
