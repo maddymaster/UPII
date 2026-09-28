@@ -173,7 +173,7 @@ python scripts/bench/benchmark.py --corpus /tmp/upii-bench-corpus --paras 60
 ```
 **What you should see:** ingestion docs/min and retrieval p50 ms, each marked
 PASS/MISS against its target. On a smaller/older machine the throughput number
-will be lower than our reference (2,032 docs/min on an M5 Max, 18 cores / 48 GB;
+will be lower than our reference (1,971 docs/min on an M5 Max, 18 cores / 48 GB;
 an earlier 10-core M5 laptop measured 627) — that's fine and useful; **please
 report your machine and the number you got.**
 

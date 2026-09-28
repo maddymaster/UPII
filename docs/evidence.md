@@ -6,7 +6,7 @@ from a committed command — the commands are listed below the table.
 
 | Phase | Milestone | Artifact | Headline number | Version |
 |---|---|---|---|---|
-| 1 | R&D infrastructure + performance baseline | [`bench/results/REPORT.md`](../bench/results/REPORT.md) | **2,032 docs/min** ingest (target ≥ 500) · **retrieval p50 117 ms** (target < 300) at 100,349 chunks | `v0.6.0` (re-measured at `0.8.1`) |
+| 1 | R&D infrastructure + performance baseline | [`bench/results/REPORT.md`](../bench/results/REPORT.md) | **1,971 docs/min** ingest (target ≥ 500) · **retrieval p50 115 ms** (target < 300) at 100,349 chunks | `v0.6.0` (re-measured at `0.8.1`) |
 | 2 | Deterministic, reproducible, content-addressed ingestion | [`bench/results/scale_REPORT.md`](../bench/results/scale_REPORT.md), [`docs/phase2_reproducibility_audit.md`](phase2_reproducibility_audit.md) | **100% chunk-hash reproducibility** (dedup · edit · delete validated) | `v0.5.0` |
 | 3 | Multi-signal retrieval (Context Rehydrator v2) | [`eval/results/REPORT.md`](../eval/results/REPORT.md) | **Recall@10 = 0.958** (target ≥ 0.85) — semantic + temporal; relational live but weight-0 by default | `v0.6.0` |
 | 4 | Local knowledge graph — extraction (T1.4) + populated-on-ingest graph + viz | [`eval/results/entity_REPORT.md`](../eval/results/entity_REPORT.md) | **Entity precision = 1.000** (target ≥ 0.80) · recall 0.920 on a 500-doc labelled set; `upii knowledge --graph` renders the ingested graph | `v0.7.0` |
@@ -37,10 +37,13 @@ pytest tests/test_mcp_server.py -q                          # 12 E2E tests via t
 
 ## Notes
 
-- **Phase 1** was re-measured on 2026-09-24 on an Apple **M5 Max MacBook Pro (18
-  cores, 48 GB), Python 3.12 — not the procured Mac Studio**. The run indexed
-  **100,349 chunks**. Both numbers are scale-sensitive: throughput falls from ≈ 2,500
-  to ≈ 1,700 docs/min across the run (see the curve in the report). The earlier
+- **Phase 1** was re-measured on an Apple **M5 Max MacBook Pro (18 cores, 48 GB),
+  Python 3.12 — not the procured Mac Studio**. The run indexed **100,349 chunks**.
+  The harness was run twice on the same machine and corpus: 2026-09-24 gave
+  **2,032 docs/min / p50 117 ms**, and 2026-09-28 gave **1,971 docs/min / p50
+  115 ms** — a ~3% spread that brackets the number in the table (the committed
+  report holds the later run). Both numbers are scale-sensitive: throughput falls
+  from ≈ 2,460 to ≈ 1,720 docs/min across the run (see the curve). The earlier
   baseline (2026-07-16, Apple M5 MacBook, 10 cores, 16 GB, Python 3.9, 99,702 chunks)
   measured **627 docs/min and p50 40 ms**; the cause of the higher median latency on
   the re-run has not been isolated. The same harness measured **145 docs/min** before
