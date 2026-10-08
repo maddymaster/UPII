@@ -16,6 +16,7 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Fixed
 
+- `upii doctor` — a fresh install with nothing ingested now reports cyan `READY` for sqlite, vector_db and ingestion instead of red `FAIL`, and doctor no longer creates an empty `upii.db`; a corrupt or unreadable database still reports `FAIL`.
 - `scripts/demo/phase3_demo.sh` — closing text and header comment no longer claim the
   relational signal "has no data source (T1.4)". Since Phase 4 it reads a real graph;
   it ships at weight 0 because enabling it was not net-positive on the retrieval eval.

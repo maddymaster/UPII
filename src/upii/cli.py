@@ -89,7 +89,9 @@ def doctor():
             color = "red"
         elif "WARN" in result:
             color = "yellow"
-            
+        elif "READY" in result:
+            color = "cyan"
+
         console.print(f"[{color}]{check.ljust(15)}: {result}[/{color}]")
 
 
