@@ -114,3 +114,6 @@ scripts/demo/
 bench/results/*
 !bench/results/.gitkeep
 eval/results/
+
+# Internal grant documents (PDF exports) stay local; none are tracked on purpose.
+docs/*.pdf

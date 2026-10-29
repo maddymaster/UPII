@@ -14,6 +14,8 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-29
+
 ### Added
 
 - **Local HTTP API** (out-of-phase, approved for the Sachiva Smriti demo):
@@ -51,7 +53,6 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 ### Fixed
 
 - Install: cap `pyarrow<26`. pyarrow 26.0 requires NumPy 2, which conflicts with the existing `numpy<2` pin, so fresh installs and CI failed at import.
-
 - `upii doctor` — a fresh install with nothing ingested now reports cyan `READY` for sqlite, vector_db and ingestion instead of red `FAIL`, and doctor no longer creates an empty `upii.db`; a corrupt or unreadable database still reports `FAIL`.
 - `scripts/demo/phase3_demo.sh` — closing text and header comment no longer claim the
   relational signal "has no data source (T1.4)". Since Phase 4 it reads a real graph;
@@ -388,7 +389,10 @@ Deterministic, reproducible, content-addressed ingestion.
 - `docs/phase2_reproducibility_audit.md` — non-determinism audit of the chunker
   and ingest path: seven findings, each with its resolution.
 
-[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/maddymaster/UPII/compare/v0.8.1...v0.9.0
+[0.8.1]: https://github.com/maddymaster/UPII/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/maddymaster/UPII/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/maddymaster/UPII/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/maddymaster/UPII/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/maddymaster/UPII/compare/v0.5.0...v0.6.0
