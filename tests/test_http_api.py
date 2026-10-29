@@ -69,8 +69,9 @@ def _client():
 def _notes(root):
     notes = root / "notes"
     notes.mkdir()
-    (notes / "alpha.md").write_text(ALPHA, encoding="utf-8")
-    (notes / "beta.md").write_text(BETA, encoding="utf-8")
+    # Bytes, not text: write_text turns \n into \r\n on Windows and changes the hash.
+    (notes / "alpha.md").write_bytes(ALPHA.encode("utf-8"))
+    (notes / "beta.md").write_bytes(BETA.encode("utf-8"))
     return notes
 
 
