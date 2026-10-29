@@ -14,6 +14,8 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-29
+
 ### Changed
 
 - **The answer model is an explicit setting**, `llm_provider: local | remote` (default
@@ -448,7 +450,8 @@ Deterministic, reproducible, content-addressed ingestion.
 - `docs/phase2_reproducibility_audit.md` — non-determinism audit of the chunker
   and ingest path: seven findings, each with its resolution.
 
-[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/maddymaster/UPII/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/maddymaster/UPII/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/maddymaster/UPII/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/maddymaster/UPII/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/maddymaster/UPII/compare/v0.7.1...v0.8.0
