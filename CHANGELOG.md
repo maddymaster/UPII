@@ -14,6 +14,18 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Changed
+
+- **Offline by default once the embedding model is cached.** Importing the embedder
+  sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` when the model is already on
+  disk (local folder, or a hub snapshot with `modules.json` + weights under
+  `HF_HUB_CACHE` / `HF_HOME` / `SENTENCE_TRANSFORMERS_HOME` / `~/.cache`), so a demo
+  never stalls on a Hugging Face metadata check and a machine with no network keeps
+  working; previously a dead network made model loading retry and then fail. The
+  check is pure filesystem and runs before `huggingface_hub` is imported. An explicit
+  value of either variable always wins: `HF_HUB_OFFLINE=0` turns the check back on.
+  An uncached model is left online so the first run can download it.
+
 ## [0.9.0] - 2026-10-29
 
 ### Added

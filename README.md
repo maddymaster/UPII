@@ -54,7 +54,7 @@ upii search "satellite latency"
 upii ask "What did we agree with ICEYE on resolution and latency?"
 ```
 
-First run downloads the embedding model (`all-MiniLM-L6-v2`, ~90 MB) — the only download UPII ever needs. For local reasoning, install [Ollama](https://ollama.com) and `ollama pull llama3.2`; without it, UPII falls back to retrieval + a deterministic mock, so it always responds.
+First run downloads the embedding model (`all-MiniLM-L6-v2`, ~90 MB) — the only download UPII ever needs. Once it is cached, UPII sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` for itself, so it never waits on a Hugging Face check and works with no network. To let it check for model updates, set `HF_HUB_OFFLINE=0` (any value you set yourself is left alone). For local reasoning, install [Ollama](https://ollama.com) and `ollama pull llama3.2`; without it, UPII falls back to retrieval + a deterministic mock, so it always responds.
 
 ### From source
 
