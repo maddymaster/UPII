@@ -10,15 +10,17 @@ from upii.core.errors import ModelError
 class LocalLLM:
     """Interface to Inference (Gemini or Ollama)."""
     
-    def __init__(self):
+    def __init__(self, allow_remote: bool = True):
         self.model = config.llm_model
         self.gemini_key = getattr(config, 'gemini_api_key', None)
         self.gemini_model = getattr(config, 'gemini_model', 'gemini-1.5-flash')
         self.is_mock = False
-        
-        # Prefer Gemini if a real key is present (supports both "AIza..." and "AQ...." key formats)
-        self.use_gemini = bool(self.gemini_key and self.gemini_key not in ("", "YOUR_API_KEY"))
-        
+
+        # Prefer Gemini if a real key is present (supports both "AIza..." and "AQ...." key formats).
+        # allow_remote=False keeps generation on-device even when a key is set; the
+        # HTTP API uses it so a CLI-only Gemini key never routes web traffic to the cloud.
+        self.use_gemini = allow_remote and bool(self.gemini_key and self.gemini_key not in ("", "YOUR_API_KEY"))
+
         if not self.use_gemini:
             self._check_ollama_connection()
 

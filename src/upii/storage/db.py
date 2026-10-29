@@ -163,7 +163,7 @@ class DB:
         return None
 
     def get_document_by_id(self, doc_id: str) -> Optional[Dict[str, Any]]:
-        """Return ``{doc_id, source_path, source_type}`` for a doc, or ``None``.
+        """Return ``{doc_id, source_path, source_type, content_hash}`` for a doc, or ``None``.
 
         Used by the MCP layer to map a retrieved chunk (whose ``doc_hash`` is the
         document's ``doc_id``) back to its human-readable path and its source_type
@@ -174,11 +174,26 @@ class DB:
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT doc_id, source_path, source_type FROM documents WHERE doc_id = ?",
+                "SELECT doc_id, source_path, source_type, content_hash FROM documents WHERE doc_id = ?",
                 (doc_id,),
             )
             row = cur.fetchone()
             return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def list_documents(self) -> List[Dict[str, Any]]:
+        """Every ingested document as ``{doc_id, path, content_hash, source_type,
+        ingestion_time}``, ordered by path then hash (deterministic). Read-only."""
+        conn = self.get_connection()
+        conn.row_factory = sqlite3.Row
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT doc_id, source_path AS path, content_hash, source_type, ingestion_time "
+                "FROM documents ORDER BY source_path, content_hash"
+            )
+            return [dict(row) for row in cur.fetchall()]
         finally:
             conn.close()
 

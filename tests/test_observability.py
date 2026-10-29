@@ -63,8 +63,11 @@ def test_doctor_fail_model(mock_ollama):
     assert "WARN" in res
 
 @patch("upii.analysis.diagnostics.os.path.exists")
-def test_doctor_fail_db(mock_exists):
+def test_doctor_missing_db_is_ready(mock_exists):
+    # A missing DB is an empty memory (created on first ingest), not a failure.
+    # Genuine corruption is covered in tests/test_doctor_fresh_install.py.
     mock_exists.return_value = False
     doc = Doctor()
     res = doc.check_sqlite()
-    assert "FAIL" in res
+    assert res.startswith("READY")
+    assert "FAIL" not in res

@@ -89,11 +89,54 @@ def doctor():
             color = "red"
         elif "WARN" in result:
             color = "yellow"
-            
+        elif "READY" in result:
+            color = "cyan"
+
         console.print(f"[{color}]{check.ljust(15)}: {result}[/{color}]")
 
 
 
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Interface to bind (default: localhost only)"),
+    port: int = typer.Option(8765, "--port", help="Port to listen on"),
+    data_dir: Optional[str] = typer.Option(
+        None, "--data-dir",
+        help="Memory folder (upii.db, vectors, staging.db, .upii_config.yaml). Default: current folder",
+    ),
+):
+    """Run the local HTTP API (needs: pip install "upii[api]")."""
+    try:
+        import uvicorn
+        from upii.api.server import LOOPBACK_HOSTS, _env_flag, create_app, use_data_dir
+    except ImportError:
+        console.print('[red]The HTTP API needs the optional extra:[/red] pip install "upii[api]"')
+        raise typer.Exit(code=1)
+
+    root = use_data_dir(data_dir or os.getcwd())
+
+    extra_hosts = []
+    if host not in LOOPBACK_HOSTS:
+        if host not in ("0.0.0.0", "::"):
+            extra_hosts.append(host)
+        else:
+            console.print("[yellow]Bound to all interfaces: list the hostnames clients will use in "
+                          "UPII_ALLOWED_HOSTS, or their requests are rejected.[/yellow]")
+        if not os.environ.get("UPII_API_KEY"):
+            console.print(f"[bold yellow]Warning:[/bold yellow] serving on {host} without UPII_API_KEY. "
+                          "Anyone who can reach this port can read your memory.")
+
+    console.print(f"[bold green]UPII API[/bold green] on http://{host}:{port}  "
+                  f"(API key: {'on' if os.environ.get('UPII_API_KEY') else 'off'}, "
+                  f"remote models: {'allowed' if _env_flag('UPII_API_ALLOW_REMOTE') else 'off'})")
+    console.print(f"Memory folder: {root}")
+    with console.status("Loading embedding model..."):
+        # Load once up front: concurrent first requests would otherwise race to load it.
+        from upii.analysis.embeddings import Embedder
+        Embedder.get_instance()
+    uvicorn.run(create_app(allowed_hosts=extra_hosts), host=host, port=port, log_level="info")
 
 
 @app.command()
@@ -463,8 +506,7 @@ def inbox(
     list_all: bool = typer.Option(False, "--all", help="List pending + approved + rejected events")
 ):
     """Manage staged ambient events."""
-    import json as _json
-    from datetime import datetime
+    from upii.ambient import inbox as inbox_ops
     from upii.ambient.storage import StagingDB
 
     stg = StagingDB()
@@ -475,116 +517,43 @@ def inbox(
 
     # --- APPROVE -----------------------------------------------------------
     if approve:
-        # Search ALL events (not just pending) so re-approving is an idempotent no-op.
-        target = next((e for e in stg.get_all_events() if e['event_id'].startswith(approve)), None)
+        target = inbox_ops.find_event(stg, approve)
         if not target:
             console.print(f"[red]Event {approve} not found.[/red]")
             return
 
-        if target['status'] == 'approved':
-            console.print(f"[yellow]Event {target['event_id'][:8]} already approved (no-op).[/yellow]")
-            return
-        if target['status'] == 'rejected':
-            console.print(f"[yellow]Event {target['event_id'][:8]} was rejected; not promoting.[/yellow]")
-            return
+        short = target['event_id'][:8]
+        if target['status'] not in ('approved', 'rejected') and target['event_type'] != 'deleted':
+            console.print(f"Approving staged content: [green]{target['file_path']}[/green]")
+        res = inbox_ops.approve_event(stg, target)
 
-        # Deleted events carry no content to promote.
-        if target['event_type'] == 'deleted':
+        if res.outcome == inbox_ops.ALREADY_APPROVED:
+            console.print(f"[yellow]Event {short} already approved (no-op).[/yellow]")
+        elif res.outcome == inbox_ops.WAS_REJECTED:
+            console.print(f"[yellow]Event {short} was rejected; not promoting.[/yellow]")
+        elif res.outcome == inbox_ops.DELETION_ACKNOWLEDGED:
             console.print(f"[yellow]Cannot approve a deletion event ({os.path.basename(target['file_path'])}).[/yellow]")
-            stg.update_event_status(target['event_id'], "acknowledged")
-            stg.log_audit("inbox", "acknowledge", {"event_id": target['event_id'], "reason": "deletion event"})
-            return
-
-        # Pull the PINNED staged content the operator reviewed — not a fresh disk read.
-        sdoc = stg.get_staging_doc_by_event(target['event_id'])
-        if not sdoc or not (sdoc.get('parsed_content') or "").strip():
+        elif res.outcome == inbox_ops.NO_CONTENT:
             console.print("[yellow]No staged content found for this event.[/yellow]")
-            stg.update_event_status(target['event_id'], "acknowledged")
-            return
-
-        console.print(f"Approving staged content: [green]{target['file_path']}[/green]")
-
-        from upii.storage.db import DB
-        from upii.storage.vector import LocalVectorStore
-        from upii.ingestion.chunker import RecursiveChunker
-        from upii.ingestion.pipeline import ingest_document
-        from upii.analysis.embeddings import Embedder
-        from upii.analysis.nlp import TaskExtractor
-
-        db = DB()
-        try: db.init_db()
-        except Exception: pass
-        vec = LocalVectorStore()
-
-        # Reconstruct the Document from the staged record.
-        metadata = {}
-        try:
-            metadata = _json.loads(sdoc.get('metadata') or "{}")
-        except Exception:
-            metadata = {}
-        ext = os.path.splitext(sdoc['file_path'])[1].lower().replace('.', '') or "note"
-
-        doc = Document(
-            path=sdoc['file_path'],
-            content_hash=sdoc['content_hash'],
-            content=sdoc['parsed_content'],
-            created_at=datetime.now(),
-            source_type=ext,
-            metadata=metadata,
-        )
-
-        # Promote to LTM via the shared deterministic pipeline (dedup + edit cleanup).
-        result = ingest_document(doc, db, vec, Embedder(), RecursiveChunker())
-        chunks = result.chunks or []
-
-        # Extract tasks, same as explicit ingest, so the auto-task beat works for ambient too.
-        tasks = TaskExtractor().extract(chunks)
-        if tasks:
-            db.add_tasks(tasks)
-            console.print(f"[magenta]Extracted {len(tasks)} task(s)[/magenta]")
-
-        console.print(f"[green]Promoted to long-term memory[/green] ({len(chunks)} chunk(s))")
-
-        stg.update_event_status(target['event_id'], "approved")
-        if sdoc.get('staging_id'):
-            stg.update_staging_status(sdoc['staging_id'], "approved")
-        stg.log_audit("inbox", "approve", {
-            "event_id": target['event_id'],
-            "file_path": sdoc['file_path'],
-            "chunks": len(chunks),
-            "tasks": len(tasks),
-        })
-
-        try:
-            from upii.analysis.metrics import MetricsCollector
-            MetricsCollector().track_passive_ingest(1)
-        except Exception:
-            pass
+        else:
+            if res.tasks:
+                console.print(f"[magenta]Extracted {res.tasks} task(s)[/magenta]")
+            console.print(f"[green]Promoted to long-term memory[/green] ({res.chunks} chunk(s))")
         return
 
     # --- REJECT ------------------------------------------------------------
     if reject:
-        target = next((e for e in stg.get_all_events() if e['event_id'].startswith(reject)), None)
+        target = inbox_ops.find_event(stg, reject)
         if not target:
             console.print(f"[red]Event {reject} not found.[/red]")
             return
-        if target['status'] == 'rejected':
+        res = inbox_ops.reject_event(stg, target)
+        if res.outcome == inbox_ops.ALREADY_REJECTED:
             console.print(f"[yellow]Event {target['event_id'][:8]} already rejected (no-op).[/yellow]")
-            return
-        if target['status'] == 'approved':
+        elif res.outcome == inbox_ops.WAS_APPROVED:
             console.print(f"[yellow]Event {target['event_id'][:8]} was already approved into LTM; refusing to reject.[/yellow]")
-            return
-
-        # Keep the rows (audit trail must survive); only flip status.
-        stg.update_event_status(target['event_id'], "rejected")
-        sdoc = stg.get_staging_doc_by_event(target['event_id'])
-        if sdoc and sdoc.get('staging_id'):
-            stg.update_staging_status(sdoc['staging_id'], "rejected")
-        stg.log_audit("inbox", "reject", {
-            "event_id": target['event_id'],
-            "file_path": target['file_path'],
-        })
-        console.print(f"[yellow]Rejected[/yellow] {os.path.basename(target['file_path'])} (kept for audit, not in LTM).")
+        else:
+            console.print(f"[yellow]Rejected[/yellow] {os.path.basename(target['file_path'])} (kept for audit, not in LTM).")
         return
 
     # --- LIST --------------------------------------------------------------

@@ -82,6 +82,67 @@ upii doctor                       # health check
 
 Run `upii --help` for the full command set.
 
+### HTTP API
+
+A small local API so a web app can use UPII without the command line. It runs the same
+in-process code as the CLI and never shells out. Optional extra (Python 3.10–3.12):
+
+```bash
+pip install "upii[api]"          # from source: pip install -e ".[api]"
+upii serve                        # http://127.0.0.1:8765, localhost only; memory = current folder
+upii serve --host 127.0.0.1 --port 8765 --data-dir ~/my-memory   # or name the memory folder
+```
+
+Memory lives in the folder `upii serve` starts in (or `--data-dir`), exactly as for the CLI:
+`upii.db`, `upii_vectors/`, `staging.db` and `.upii_config.yaml` are all read from there.
+Interactive docs are at `http://127.0.0.1:8765/docs` while the server runs.
+
+Settings, all read from the environment when the server starts:
+
+| Variable | Effect |
+|---|---|
+| `UPII_API_KEY` | When set, every request must send it as an `X-API-Key` header (`401` otherwise). |
+| `UPII_ALLOWED_ORIGINS` | Comma-separated origins allowed by CORS, e.g. `http://localhost:3000`. CORS is off otherwise. |
+| `UPII_ALLOWED_HOSTS` | Extra `Host` names to accept beyond `localhost` / `127.0.0.1`; only needed when binding another interface. Other hosts get `400` (DNS-rebinding guard). |
+| `UPII_API_ALLOW_REMOTE` | `1` lets `/ask` use Gemini, and only for requests that send `"local_only": false`. Off by default. |
+
+Every request is appended to the local audit trail (the `audit_logs` table in `staging.db`,
+the same trail the approval inbox writes): endpoint, time, status, result count and a
+SHA-256 of the query. The query text, document text and keys are never logged. Errors
+always look like `{"error": "<code>", "detail": "<message>"}`.
+
+The examples below use `U=http://127.0.0.1:8765` and `J='Content-Type: application/json'`;
+add `-H "X-API-Key: $UPII_API_KEY"` when a key is set.
+
+```bash
+# Health: doctor checks per component (READY/OK/WARN/FAIL), version, answer model.
+curl -s $U/health
+
+# Ingest a path on this machine (no uploads). Per-file status: ingested/updated/skipped/error.
+curl -s -X POST $U/ingest -H "$J" -d '{"path": "/Users/me/notes", "recursive": true}'
+# Long ingest: run it as a job and poll the returned status_url.
+curl -s -X POST $U/ingest -H "$J" -d '{"path": "/Users/me/notes", "background": true}'
+curl -s $U/ingest/jobs/<job_id>
+
+# Approval inbox for ambient captures (from `upii watch`).
+curl -s $U/inbox
+curl -s -X POST $U/inbox/<id>/approve
+curl -s -X POST $U/inbox/<id>/reject
+
+# Ranked passages with document path and hash, chunk hash, per-signal scores and weights.
+curl -s -X POST $U/search -H "$J" -d '{"query": "Project Omega deadline", "limit": 10}'
+
+# Answer with sources. local_only (default true) never uses a remote model and returns
+# 503 if no local model is available; no_answer=true returns retrieval only.
+curl -s -X POST $U/ask -H "$J" -d '{"question": "What is Project Omega about?", "no_answer": false, "local_only": true}'
+
+# Ingested documents with path, hash and ingestion time.
+curl -s $U/sources
+
+# Audit trail, newest first.
+curl -s "$U/audit?limit=50&offset=0"
+```
+
 ## How it works
 
 ```mermaid

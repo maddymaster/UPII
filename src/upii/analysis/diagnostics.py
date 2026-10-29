@@ -1,5 +1,6 @@
 import os
 import shutil
+import sqlite3
 import logging
 from typing import Dict, Any, List
 import ollama
@@ -23,21 +24,28 @@ class Doctor:
 
     def check_sqlite(self) -> str:
         try:
+            # An empty memory is a valid state: the DB is created on first ingest.
+            # Checked before connecting, since sqlite3.connect would create the file.
             if not os.path.exists(config.db_path):
-                return "FAIL: DB file missing"
+                return "READY: empty memory, created on first ingest"
             db = DB()
             conn = db.get_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT 1")
-            conn.close()
+            try:
+                # SELECT 1 never touches the file; reading the schema forces SQLite
+                # to parse the header, so a corrupt file fails here.
+                conn.execute("PRAGMA schema_version").fetchone()
+            finally:
+                conn.close()
             return "OK"
+        except sqlite3.DatabaseError as e:
+            return f"FAIL: database is unreadable or corrupt ({config.db_path}): {e}"
         except Exception as e:
             return f"FAIL: {e}"
 
     def check_vector_db(self) -> str:
         try:
             if not os.path.exists(config.vector_store_path):
-                return "FAIL: Vector path missing"
+                return "READY: no vectors yet, created on first ingest"
             vs = LocalVectorStore()
             count = vs.count()
             return f"OK ({count} vectors)"
@@ -91,6 +99,9 @@ class Doctor:
 
     def check_last_ingestion(self) -> str:
         try:
+            # Doctor must never create files; DB() would create an empty upii.db.
+            if not os.path.exists(config.db_path):
+                return "READY: nothing ingested yet"
             db = DB()
             conn = db.get_connection()
             cur = conn.cursor()
