@@ -195,7 +195,10 @@ class ContextRehydrator:
                 edges = []
             for edge in edges:
                 chunk_hash = edge["chunk_hash"]
-                rel_score = float(edge.get("confidence") or 1.0)
+                # The extractor rule's confidence (project 0.95 ... acronym org 0.70):
+                # a chunk linked through a surer match scores higher.
+                conf = edge.get("confidence")
+                rel_score = float(conf) if conf is not None else 1.0
                 cand = candidates.get(chunk_hash)
                 if cand is None:
                     cand = _Candidate(

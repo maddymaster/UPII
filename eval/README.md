@@ -32,6 +32,8 @@ eval/
   harness.py        index isolation, corpus ingest, label resolution, retrieval
   build_dataset.py  build / list-chunks / annotate
   run_eval.py       score labels -> results/REPORT.md
+  run_relational_eval.py  relational weight sweep, uniform vs rule-confidence edges
+                    -> results/relational_REPORT.md
   run_abstention_eval.py  check rag_min_similarity: labelled queries answer, unrelated
                     questions abstain -> results/abstention_REPORT.md
   run.sh            one-command entry point
