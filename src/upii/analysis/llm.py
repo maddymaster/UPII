@@ -2,27 +2,51 @@ import ollama
 import json
 import urllib.request
 import urllib.error
-from typing import List, Optional
+from typing import Dict, List, Optional
 from upii.core.config import config
 from upii.core.types import Chunk
 from upii.core.errors import ModelError
 
+PROVIDERS = ("local", "remote")
+
+
 class LocalLLM:
-    """Interface to Inference (Gemini or Ollama)."""
-    
-    def __init__(self, allow_remote: bool = True):
+    """Interface to Inference: Ollama on this machine, or Gemini when explicitly chosen."""
+
+    def __init__(self, provider: Optional[str] = None):
+        """``provider`` overrides ``config.llm_provider`` ("local" | "remote").
+
+        Remote (Gemini) is used only when the provider is "remote"; a GEMINI_API_KEY
+        alone never routes answers off the machine. Asking for remote without a key
+        raises :class:`ModelError` rather than quietly answering locally.
+        """
+        self.provider = str(provider or getattr(config, "llm_provider", "local") or "local").strip().lower()
+        if self.provider not in PROVIDERS:
+            raise ModelError(f"llm_provider must be 'local' or 'remote', got {self.provider!r}")
         self.model = config.llm_model
         self.gemini_key = getattr(config, 'gemini_api_key', None)
         self.gemini_model = getattr(config, 'gemini_model', 'gemini-1.5-flash')
         self.is_mock = False
 
-        # Prefer Gemini if a real key is present (supports both "AIza..." and "AQ...." key formats).
-        # allow_remote=False keeps generation on-device even when a key is set; the
-        # HTTP API uses it so a CLI-only Gemini key never routes web traffic to the cloud.
-        self.use_gemini = allow_remote and bool(self.gemini_key and self.gemini_key not in ("", "YOUR_API_KEY"))
+        self.use_gemini = self.provider == "remote"
+        if self.use_gemini and not (self.gemini_key and self.gemini_key not in ("", "YOUR_API_KEY")):
+            raise ModelError("llm_provider is 'remote' but GEMINI_API_KEY is not set")
 
         if not self.use_gemini:
             self._check_ollama_connection()
+
+    def model_info(self) -> Dict[str, str]:
+        """The model that answers (read after generating: Ollama can drop to mock mid-call)."""
+        if self.use_gemini:
+            return {"name": self.gemini_model, "provider": "gemini", "location": "remote"}
+        if self.is_mock:
+            return {"name": "mock", "provider": "mock", "location": "local"}
+        return {"name": self.model, "provider": "ollama", "location": "local"}
+
+    def model_label(self) -> str:
+        """``"llama3.2 (ollama, local)"`` — for CLI output."""
+        m = self.model_info()
+        return f"{m['name']} ({m['provider']}, {m['location']})"
 
     def _check_ollama_connection(self):
         try:

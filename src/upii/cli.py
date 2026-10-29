@@ -110,7 +110,7 @@ def serve(
     """Run the local HTTP API (needs: pip install "upii[api]")."""
     try:
         import uvicorn
-        from upii.api.server import LOOPBACK_HOSTS, _env_flag, create_app, use_data_dir
+        from upii.api.server import LOOPBACK_HOSTS, create_app, use_data_dir
     except ImportError:
         console.print('[red]The HTTP API needs the optional extra:[/red] pip install "upii[api]"')
         raise typer.Exit(code=1)
@@ -130,7 +130,7 @@ def serve(
 
     console.print(f"[bold green]UPII API[/bold green] on http://{host}:{port}  "
                   f"(API key: {'on' if os.environ.get('UPII_API_KEY') else 'off'}, "
-                  f"remote models: {'allowed' if _env_flag('UPII_API_ALLOW_REMOTE') else 'off'})")
+                  f"answer model: local by default, configured provider '{config.llm_provider}')")
     console.print(f"Memory folder: {root}")
     with console.status("Loading embedding model..."):
         # Load once up front: concurrent first requests would otherwise race to load it.
@@ -307,13 +307,14 @@ def ask(
         return
 
     # 2. Generation
-    llm = LocalLLM()
     try:
+        llm = LocalLLM()
         with console.status("[bold green]Thinking...[/bold green]"):
             answer = llm.answer_with_citations(question, results)
         
         console.print("\n[bold]Answer:[/bold]")
         console.print(answer)
+        console.print(f"\n[dim]Answered by: {llm.model_label()}[/dim]")
         
         if results and "I don't know" not in answer:
              console.print("\n[dim]Sources used:[/dim]")
@@ -735,7 +736,12 @@ def write(
         console.print("[dim]No self-authored style examples found; using a neutral tone.[/dim]")
 
     # 3. Compose with LLM
-    llm = LocalLLM()
+    from upii.core.errors import ModelError
+    try:
+        llm = LocalLLM()
+    except ModelError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
     context_str = "\n".join([f"- {r.text}" for r in results]) if results else "No specific context found."
     style_str = "\n".join([f"- {s}" for s in style_examples]) if style_examples else "(no self-authored samples)"
 
@@ -768,7 +774,8 @@ def write(
         draft = llm.generate(prompt)
 
     draft = _postprocess_draft(draft, target, user, llm)
-    console.print(Panel(draft, title=f"Generated Draft ({target})", border_style="green"))
+    console.print(Panel(draft, title=f"Generated Draft ({target})", border_style="green",
+                        subtitle=f"Answered by: {llm.model_label()}"))
 
 
 def _postprocess_draft(draft: str, target: str, user: str, llm) -> str:

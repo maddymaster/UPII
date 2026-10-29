@@ -193,6 +193,7 @@ class MCPService:
         self._log("upii_ask", question, [r["chunk_id"] for r in results])
         return {
             "answer": answer,
+            "model": self.llm.model_info(),
             "citations": [
                 {"chunk_id": r["chunk_id"], "doc_path": r["doc_path"], "source": r["source"]}
                 for r in results

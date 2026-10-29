@@ -13,6 +13,10 @@ class Config:
     user_name: str = "Maddy"
     # LLM & RAG
     llm_model: str = "llama3.2" # Default to fast model
+    # Which model answers: "local" (Ollama on this machine) or "remote" (Gemini).
+    # Remote is used ONLY when set here (or via UPII_LLM_PROVIDER); a GEMINI_API_KEY
+    # on its own never switches answers to the cloud.
+    llm_provider: str = "local"
     embedding_model: str = "all-MiniLM-L6-v2"
     rag_min_similarity: float = 0.5
     rag_max_chunks: int = 5
@@ -63,7 +67,12 @@ class Config:
             # a user adds per docs/mcp_setup.md) rather than crashing startup with a
             # TypeError. MCP settings have their own loader (upii.mcp.config).
             known = {f.name for f in fields(cls)}
-            return cls(**{k: v for k, v in data.items() if k in known})
-        return cls()
+            cfg = cls(**{k: v for k, v in data.items() if k in known})
+        else:
+            cfg = cls()
+        env_provider = os.environ.get("UPII_LLM_PROVIDER", "").strip()
+        if env_provider:
+            cfg.llm_provider = env_provider
+        return cfg
 
 config = Config.load()
