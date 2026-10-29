@@ -34,7 +34,7 @@ $ upii ask "What did we agree with ICEYE on resolution and latency?"
 
 Most RAG and "second brain" tools upload your corpus to someone else's cloud and rent your own memory back to you. UPII inverts that:
 
-- **100% local.** Embeddings ([sentence-transformers](https://www.sbert.net/) MiniLM), vector store ([LanceDB](https://lancedb.com/)), metadata (SQLite), and reasoning ([Ollama](https://ollama.com)) all run on-device. A remote LLM (Gemini) is optional and swappable — never required.
+- **100% local.** Embeddings ([sentence-transformers](https://www.sbert.net/) MiniLM), vector store ([LanceDB](https://lancedb.com/)), metadata (SQLite), and reasoning ([Ollama](https://ollama.com)) all run on-device. A remote LLM (Gemini) is optional, off by default, and used only when you set `llm_provider: remote`.
 - **Every answer is cited.** Answers are attributed to source chunks by content-addressed ID. Retrieval is verifiable, not just plausible.
 - **Deterministic, reproducible memory.** Chunk IDs are a pure function of content + config. Re-ingesting the same corpus reproduces 100% of chunk hashes — validated by tests and benchmarks. Citations stay stable across re-indexes; re-embedding is cache-safe.
 - **More than cosine similarity.** The Context Rehydrator is built to fuse three signals — semantic (vectors), temporal ("what was I working on last week"), and relational (a local knowledge graph of people, projects, orgs, populated on ingest) — into one ranked context window, with per-signal contributions visible via `upii ask --debug`. Measured, not asserted: **Recall@10 = 0.958** on a committed labelled set ([reproduce it](eval/README.md)). The relational signal is live but weight-0 by default until it's tuned to help (see [Status](#status)); the score above is from semantic + temporal.
@@ -82,6 +82,18 @@ upii doctor                       # health check
 
 Run `upii --help` for the full command set.
 
+**Answer model.** Answers come from Ollama on this machine unless you explicitly choose
+the remote model. Setting `GEMINI_API_KEY` on its own changes nothing:
+
+```yaml
+# .upii_config.yaml in your memory folder
+llm_provider: local     # local (default, Ollama) | remote (Gemini; also needs GEMINI_API_KEY)
+```
+
+`UPII_LLM_PROVIDER=local|remote` overrides the file. Every answer says which model produced
+it: `upii ask` and `upii write` print `Answered by: …`, and the MCP server, overlay and HTTP API
+return a `model` field. `upii doctor` reports the configured provider.
+
 ### HTTP API
 
 A small local API so a web app can use UPII without the command line. It runs the same
@@ -104,7 +116,6 @@ Settings, all read from the environment when the server starts:
 | `UPII_API_KEY` | When set, every request must send it as an `X-API-Key` header (`401` otherwise). |
 | `UPII_ALLOWED_ORIGINS` | Comma-separated origins allowed by CORS, e.g. `http://localhost:3000`. CORS is off otherwise. |
 | `UPII_ALLOWED_HOSTS` | Extra `Host` names to accept beyond `localhost` / `127.0.0.1`; only needed when binding another interface. Other hosts get `400` (DNS-rebinding guard). |
-| `UPII_API_ALLOW_REMOTE` | `1` lets `/ask` use Gemini, and only for requests that send `"local_only": false`. Off by default. |
 
 Every request is appended to the local audit trail (the `audit_logs` table in `staging.db`,
 the same trail the approval inbox writes): endpoint, time, status, result count and a
@@ -133,7 +144,8 @@ curl -s -X POST $U/inbox/<id>/reject
 curl -s -X POST $U/search -H "$J" -d '{"query": "Project Omega deadline", "limit": 10}'
 
 # Answer with sources. local_only (default true) never uses a remote model and returns
-# 503 if no local model is available; no_answer=true returns retrieval only.
+# 503 if no local model is available; local_only=false uses the configured llm_provider
+# (remote only if set to remote, see "Answer model" above); no_answer=true returns retrieval only.
 curl -s -X POST $U/ask -H "$J" -d '{"question": "What is Project Omega about?", "no_answer": false, "local_only": true}'
 
 # Ingested documents with path, hash and ingestion time.

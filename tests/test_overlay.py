@@ -29,6 +29,9 @@ def test_overlay_api_structure(monkeypatch):
         def answer_with_citations(self, query, context):
             return "Simulated Answer"
 
+        def model_info(self):
+            return {"name": "mock", "provider": "mock", "location": "local"}
+
     monkeypatch.setattr("upii.overlay.app.ContextRehydrator", MockRehydrator)
     monkeypatch.setattr("upii.overlay.app.LocalLLM", MockLLM)
 

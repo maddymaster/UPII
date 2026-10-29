@@ -14,6 +14,21 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Changed
+
+- **The answer model is an explicit setting**, `llm_provider: local | remote` (default
+  `local`; `.upii_config.yaml` or `UPII_LLM_PROVIDER`). A `GEMINI_API_KEY` on its own no
+  longer switches answers to Gemini anywhere: CLI `ask` and `write`, the MCP server, the
+  overlay and the HTTP API all answer with Ollama unless the provider is `remote`.
+  `remote` without a key is an error (`ModelError`), not a quiet local fallback.
+- Every answer names its model: `upii ask` / `upii write` print `Answered by: …`; MCP
+  `upii_ask`, the overlay and HTTP `/ask` return `model` (`name`, `provider`, `location`).
+  `upii doctor` reports a remote provider as `OK (remote: …)` or `FAIL` without a key.
+- HTTP API: `UPII_API_ALLOW_REMOTE` is replaced by `llm_provider`. `/ask` with
+  `local_only: false` uses the configured provider; a remote provider with no key returns
+  `503 model_unavailable`. `/health` reports `configured_provider` and `remote.enabled`.
+- `LocalLLM(allow_remote=...)` → `LocalLLM(provider=...)`; new `LocalLLM.model_info()`.
+
 ## [0.9.0] - 2026-10-29
 
 ### Added

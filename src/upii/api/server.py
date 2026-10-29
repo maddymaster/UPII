@@ -13,7 +13,8 @@ Sovereignty and safety defaults:
 - CORS is off unless ``UPII_ALLOWED_ORIGINS`` lists origins;
 - /ask answers locally by default (``local_only: true``) and returns 503 rather than
   falling back to a mock or a cloud model; a remote model is reachable only when the
-  client sends ``local_only: false`` AND the server sets ``UPII_API_ALLOW_REMOTE=1``;
+  client sends ``local_only: false`` AND the server's ``llm_provider`` is ``remote``
+  (a GEMINI_API_KEY alone never switches to remote);
 - every request is appended to the existing audit trail (``audit_logs`` in
   staging.db, source ``api``) with the endpoint, status and a SHA-256 of the query,
   never the query, document text or key.
@@ -81,10 +82,6 @@ def _env_list(name: str) -> List[str]:
     return [v.strip() for v in os.environ.get(name, "").split(",") if v.strip()]
 
 
-def _env_flag(name: str) -> bool:
-    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
-
-
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -119,15 +116,6 @@ def _scores(r) -> Dict[str, float]:
         "relational": round(float(signals.get("relational", 0.0)), 6),
         "fused": round(float(getattr(r, "score", 0.0)), 6),
     }
-
-
-def _model_info(llm) -> Dict[str, str]:
-    # Read after generation: LocalLLM can drop to mock mode mid-call.
-    if llm.use_gemini:
-        return {"name": llm.gemini_model, "provider": "gemini", "location": "remote"}
-    if llm.is_mock:
-        return {"name": "mock", "provider": "mock", "location": "local"}
-    return {"name": llm.model, "provider": "ollama", "location": "local"}
 
 
 def _gemini_key_configured() -> bool:
@@ -172,7 +160,6 @@ def use_data_dir(path: str) -> str:
 def create_app(allowed_hosts: Optional[List[str]] = None) -> FastAPI:
     """Build the API. Security settings are read from the environment here, once."""
     api_key = os.environ.get("UPII_API_KEY") or None
-    allow_remote = _env_flag("UPII_API_ALLOW_REMOTE")
     origins = _env_list("UPII_ALLOWED_ORIGINS")
     hosts = set(LOOPBACK_HOSTS + (allowed_hosts or []) + _env_list("UPII_ALLOWED_HOSTS"))
 
@@ -381,11 +368,15 @@ def create_app(allowed_hosts: Optional[List[str]] = None) -> FastAPI:
             "version": __version__,
             "checks": checks,
             "answer_model": {
+                # /ask uses "local" unless a request sends local_only=false, in which
+                # case it uses the configured provider.
                 "default": "local",
+                "configured_provider": config.llm_provider,
                 "local": {"provider": "ollama", "name": config.llm_model,
                           "status": checks.get("model", {}).get("status")},
                 "remote": {"provider": "gemini", "name": config.gemini_model,
-                           "key_configured": _gemini_key_configured(), "allowed": allow_remote},
+                           "key_configured": _gemini_key_configured(),
+                           "enabled": config.llm_provider == "remote"},
             },
         }
 
@@ -492,12 +483,14 @@ def create_app(allowed_hosts: Optional[List[str]] = None) -> FastAPI:
         _note(request, query=req.question)
         llm = None
         if not req.no_answer:
-            if not req.local_only and not allow_remote:
-                raise APIError(403, "remote_not_allowed",
-                               "local_only=false needs UPII_API_ALLOW_REMOTE=1 on the server")
             from upii.analysis.llm import LocalLLM
+            from upii.core.errors import ModelError
 
-            llm = LocalLLM(allow_remote=not req.local_only)
+            try:
+                # local_only -> always Ollama; otherwise the server's llm_provider setting.
+                llm = LocalLLM(provider="local" if req.local_only else None)
+            except ModelError as e:
+                raise APIError(503, "model_unavailable", str(e))
             if req.local_only and llm.is_mock:
                 raise APIError(503, "local_model_unavailable",
                                f"No local answer model: Ollama is not reachable (model {config.llm_model}). "
@@ -531,7 +524,7 @@ def create_app(allowed_hosts: Optional[List[str]] = None) -> FastAPI:
                 raise APIError(503, "local_model_unavailable",
                                f"Local generation failed (model {config.llm_model}). "
                                "Check `ollama list`, or send no_answer=true for retrieval only.")
-            model = _model_info(llm)
+            model = llm.model_info()
 
         return {"answer": answer, "model": model, "sources": sources}
 

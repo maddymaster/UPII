@@ -10,11 +10,12 @@ MOCK_MARKER = "simulated AI response"
 def force_local_path(monkeypatch):
     """Pin every test to the local Ollama path.
 
-    LocalLLM prefers Gemini whenever config.gemini_api_key is non-empty, and that
-    key is read from the environment. Without this, a developer with GEMINI_API_KEY
-    exported would send these test prompts to the real API.
+    LocalLLM only uses Gemini when llm_provider is "remote", but pinning both the
+    provider and the key keeps a developer's environment (UPII_LLM_PROVIDER,
+    GEMINI_API_KEY) from ever sending these test prompts to the real API.
     """
     monkeypatch.setattr("upii.analysis.llm.config.gemini_api_key", "")
+    monkeypatch.setattr("upii.analysis.llm.config.llm_provider", "local")
 
 
 @patch("upii.analysis.llm.ollama")

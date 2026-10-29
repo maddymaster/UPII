@@ -34,6 +34,7 @@ def test_doctor_checks(mock_exists, mock_shutil, mock_ollama, mock_vs, mock_db, 
     # Ollama its __init__ would flip is_mock=True and short-circuit. Pin it False so
     # the test exercises the real model-lookup path and is hermetic (no daemon).
     mock_llm.return_value.is_mock = False
+    mock_llm.return_value.use_gemini = False  # llm_provider=local
     
     mock_db_instance = mock_db.return_value
     mock_db_instance.get_connection.return_value.cursor.return_value.fetchone.return_value = ["2023-01-01"]

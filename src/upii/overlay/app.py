@@ -154,6 +154,9 @@ HTML_TEMPLATE = """
             }
 
             let html = `<div class="answer-block">${data.answer.replace(/\\n/g, '<br>')}</div>`;
+            if (data.model) {
+                html += `<div style="opacity:0.6;font-size:12px">Answered by: ${data.model.name} (${data.model.provider}, ${data.model.location})</div>`;
+            }
             
             if (data.ranking && data.ranking.length > 0) {
                 html += `<div class="sources-list"><strong>Sources Used:</strong>`;
@@ -201,6 +204,7 @@ class OverlayAPI:
                 
             return {
                 "answer": answer,
+                "model": self.llm.model_info(),
                 "ranking": ranking_info
             }
         except Exception as e:
