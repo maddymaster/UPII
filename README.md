@@ -90,7 +90,13 @@ the remote model. Setting `GEMINI_API_KEY` on its own changes nothing:
 llm_provider: local     # local (default, Ollama) | remote (Gemini; also needs GEMINI_API_KEY)
 ```
 
-`UPII_LLM_PROVIDER=local|remote` overrides the file. Every answer says which model produced
+`UPII_LLM_PROVIDER=local|remote` overrides the file.
+
+**Not found.** Answers only use passages whose cosine similarity to the question is at
+least `rag_min_similarity` (default `0.20`, in `.upii_config.yaml`). If none qualify,
+`upii ask` says *Not found in your memory* and no model is called; the model can also
+abstain when the passages don't contain the answer. Sources are listed only when the
+answer cites them. `python eval/run_abstention_eval.py` re-checks the threshold. Every answer says which model produced
 it: `upii ask` and `upii write` print `Answered by: …`, and the MCP server, overlay and HTTP API
 return a `model` field. `upii doctor` reports the configured provider.
 
@@ -144,7 +150,9 @@ curl -s -X POST $U/inbox/<id>/reject
 curl -s -X POST $U/search -H "$J" -d '{"query": "Project Omega deadline", "limit": 10}'
 
 # Answer with sources. local_only (default true) never uses a remote model and returns
-# 503 if no local model is available; local_only=false uses the configured llm_provider
+# 503 if no local model is available. "found": false (with no sources) means nothing in
+# memory answers it; "sources" lists only passages the answer cites.
+# local_only=false uses the configured llm_provider
 # (remote only if set to remote, see "Answer model" above); no_answer=true returns retrieval only.
 curl -s -X POST $U/ask -H "$J" -d '{"question": "What is Project Omega about?", "no_answer": false, "local_only": true}'
 

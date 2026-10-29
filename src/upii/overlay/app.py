@@ -10,7 +10,8 @@ except ImportError:
     webview = None
 
 from upii.analysis.rehydration import ContextRehydrator
-from upii.analysis.llm import LocalLLM
+from upii.analysis.llm import NOT_FOUND_MESSAGE, LocalLLM
+from upii.core.config import config
 from upii.core.types import RankedChunk
 
 logger = logging.getLogger("upii.overlay")
@@ -188,10 +189,13 @@ class OverlayAPI:
         """Handle query from frontend."""
         try:
             # 1. Rehydrate
-            ranked_chunks = self.rehydrator.rehydrate(text, limit=5)
-            
+            ranked_chunks = self.rehydrator.rehydrate(text, limit=5,
+                                                      min_similarity=config.rag_min_similarity)
+            if not ranked_chunks:
+                return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None, "ranking": []}
+
             # 2. Generate
-            answer = self.llm.answer_with_citations(text, ranked_chunks)
+            answer = self.llm.answer(text, ranked_chunks)
             
             # 3. Format visual ranking debug info
             ranking_info = []
@@ -203,7 +207,8 @@ class OverlayAPI:
                 })
                 
             return {
-                "answer": answer,
+                "answer": answer.text,
+                "found": answer.found,
                 "model": self.llm.model_info(),
                 "ranking": ranking_info
             }

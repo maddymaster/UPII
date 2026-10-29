@@ -1,5 +1,7 @@
 import ollama
 import json
+import re
+from dataclasses import dataclass, field
 import urllib.request
 import urllib.error
 from typing import Dict, List, Optional
@@ -8,6 +10,20 @@ from upii.core.types import Chunk
 from upii.core.errors import ModelError
 
 PROVIDERS = ("local", "remote")
+
+# The model's abstention signal, and the message shown in its place.
+NOT_FOUND_TOKEN = "NOT_FOUND"
+NOT_FOUND_MESSAGE = "Not found in your memory."
+_NOT_FOUND_RE = re.compile(r"\bNOT_FOUND\b")
+_CITATION_RE = re.compile(r"\[(\d{1,3})\]")
+
+
+@dataclass
+class Answer:
+    """Result of :meth:`LocalLLM.answer`."""
+    text: str
+    found: bool
+    cited: List[int] = field(default_factory=list)  # 1-based indices into the chunks given
 
 
 class LocalLLM:
@@ -105,18 +121,10 @@ class LocalLLM:
                 self.is_mock = True
                 return "This is a simulated AI response (Ollama failed)."
 
-    def answer_with_citations(self, question: str, chunks: List[Chunk]) -> str:
-        """Generates an answer using the provided chunks as context."""
-        
-        # If no context, we still might want to answer if using Gemini (General Knowledge),
-        # but for RAG we usually restrict. However, user wants "better than I don't know".
-        # We will try to answer but flag it if no context.
-        # BUT the logic below depends on context.
-        
+    def _answer_prompt(self, question: str, chunks: List[Chunk]) -> str:
         context_str = ""
         if chunks:
             for i, chunk in enumerate(chunks):
-                # source = f"{chunk.doc_hash} (Chunk {chunk.chunk_hash})"
                 context_str += f"Source [{i+1}] (ID: {chunk.doc_hash}):\n{chunk.text}\n---\n"
         else:
             context_str = "No specific local files found."
@@ -126,7 +134,7 @@ class LocalLLM:
         if self.use_gemini:
             system_instruction += " Speak in my voice: direct, professional, and concise. Do not sound like a generic AI assistant."
 
-        prompt = f"""{system_instruction}
+        return f"""{system_instruction}
 
 Context from my digital life:
 {context_str}
@@ -136,11 +144,30 @@ User/My Query: {question}
 Instructions:
 1. Answer using the context provided as your primary memory.
 2. If drafting content, adopt the style found in the context.
-3. If the question is generic (e.g. "What is AI?"), answer it, but ground it in my perspective/interests if the context allows.
+3. If the context does not contain the answer, reply with exactly {NOT_FOUND_TOKEN} and nothing else. Do not guess.
 4. NEVER say "As an AI" or "I am a large language model" or mention "Gemini". You are my Second Brain.
 5. CITE YOUR SOURCES like [1] only if you are referencing specific facts from my files.
 6. Be concise, direct, and helpful.
 
 Answer:"""
 
-        return self.generate(prompt)
+    def answer(self, question: str, chunks: List[Chunk]) -> "Answer":
+        """Grounded answer with a structured abstention flag and the sources it cites.
+
+        No context -> not found, and the model is never called. Otherwise the model
+        is told to reply with ``NOT_FOUND`` when the context lacks the answer; that
+        token (not any particular wording) sets ``found=False``. ``cited`` holds the
+        1-based source numbers the answer actually references, so callers list only
+        those — never citations for an answer that has none.
+        """
+        if not chunks:
+            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
+        raw = (self.generate(self._answer_prompt(question, chunks)) or "").strip()
+        if _NOT_FOUND_RE.search(raw):
+            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
+        cited = sorted({int(n) for n in _CITATION_RE.findall(raw) if 1 <= int(n) <= len(chunks)})
+        return Answer(text=raw, found=True, cited=cited)
+
+    def answer_with_citations(self, question: str, chunks: List[Chunk]) -> str:
+        """Generates an answer using the provided chunks as context (raw model text)."""
+        return self.generate(self._answer_prompt(question, chunks))
