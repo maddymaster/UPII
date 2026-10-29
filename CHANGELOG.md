@@ -28,6 +28,28 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   `local_only: false` uses the configured provider; a remote provider with no key returns
   `503 model_unavailable`. `/health` reports `configured_provider` and `remote.enabled`.
 - `LocalLLM(allow_remote=...)` → `LocalLLM(provider=...)`; new `LocalLLM.model_info()`.
+- **Answers abstain instead of guessing.** `rag_min_similarity` (defined but never
+  applied) now filters, before ranking, every candidate whose *absolute* cosine
+  similarity to the question is below it, on all answer paths (CLI `ask`, MCP
+  `upii_ask`, overlay, HTTP `/ask`). If none pass, the answer is "Not found in your
+  memory" and no model is called. Search and the retrieval eval are unaffected.
+- **Default `rag_min_similarity` 0.5 → 0.20.** Applied as-is, 0.5 would have answered
+  "not found" on 3 of the 12 labelled eval queries, and on the demo data on the
+  scripted "What is blocking Project Firewatch?" (cosine 0.271). On the demo data
+  relevant and unrelated questions overlap (~0.20–0.25), so the threshold is a
+  conservative pre-filter and the grey zone is left to the model's `NOT_FOUND` flag.
+  At 0.20: eval queries 12/12 answer, eval unrelated probes 8/8 abstain, every scripted
+  demo question passes (lowest 0.263). New `eval/run_abstention_eval.py` re-runs this
+  and fails if any scripted demo question would be refused.
+- **"Not found" is a structured flag, not phrase matching.** The prompt asks the model
+  to reply `NOT_FOUND` when the context lacks the answer; new `LocalLLM.answer()`
+  returns `Answer(text, found, cited)`. Sources are listed only when the answer cites
+  them (`[n]`), so a non-answer never shows citations. Replaces the CLI's exact
+  "I don't know" substring check. The prompt's "answer generic questions anyway" rule
+  is replaced by the abstention rule.
+- HTTP `/ask` and MCP `upii_ask` return `found`; their `sources` / `citations` list
+  only cited passages. `RankedChunk.similarity` carries the absolute cosine
+  (`/ask` `debug: true` shows it).
 
 ## [0.9.0] - 2026-10-29
 

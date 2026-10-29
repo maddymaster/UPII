@@ -71,9 +71,10 @@ class _RehydratorEngine:
     so no model or LanceDB is needed; fusion + the deterministic sort are real.
     """
 
-    def search(self, query, time_filter=None, limit=5, weights=None):
+    def search(self, query, time_filter=None, limit=5, weights=None, min_similarity=None):
         from upii.analysis.rehydration import ContextRehydrator
-        return ContextRehydrator().rehydrate(query, time_filter, limit, weights=weights)
+        return ContextRehydrator().rehydrate(query, time_filter, limit, weights=weights,
+                                             min_similarity=min_similarity)
 
 
 @pytest.fixture
@@ -165,14 +166,17 @@ def test_search_happy_path(seeded):
     assert top["score"] >= rows[1]["score"]
 
 
-def test_ask_happy_path(seeded):
+def test_ask_happy_path(seeded, monkeypatch):
+    # Hermetic local model whose answer cites source [1]; only cited sources are listed.
+    monkeypatch.setattr("upii.analysis.llm.ollama.list", lambda: {"models": []})
+    monkeypatch.setattr("upii.analysis.llm.ollama.generate",
+                        lambda **_: {"response": "Alpha kicked off on Monday [1]."})
     server = build_server(service=_service())
     result, _ = _run(_call(server, "upii_ask", {"question": "what is alpha?"}))
     assert result.isError is False
     obj = _parse_obj(result)
-    assert "answer" in obj
-    cited = {c["chunk_id"] for c in obj["citations"]}
-    assert "c_md" in cited
+    assert obj["answer"] == "Alpha kicked off on Monday [1]." and obj["found"] is True
+    assert [c["chunk_id"] for c in obj["citations"]] == ["c_md"]
 
 
 def test_list_sources_happy_path(seeded):

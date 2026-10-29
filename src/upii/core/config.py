@@ -18,7 +18,15 @@ class Config:
     # on its own never switches answers to the cloud.
     llm_provider: str = "local"
     embedding_model: str = "all-MiniLM-L6-v2"
-    rag_min_similarity: float = 0.5
+    # Answer paths (ask, MCP, overlay, HTTP /ask) only use chunks whose absolute
+    # cosine similarity to the question is at least this; if none pass, the answer is
+    # "not found" and no model is called. It is a conservative pre-filter for clearly
+    # unrelated questions: on the demo data, relevant and unrelated questions overlap
+    # between ~0.20 and ~0.25, so that grey zone is left to the model's NOT_FOUND
+    # flag. 0.20 keeps every scripted demo question (lowest 0.263) and every labelled
+    # eval query (lowest 0.315); `python eval/run_abstention_eval.py` checks both.
+    # Search and the retrieval eval ignore it.
+    rag_min_similarity: float = 0.20
     rag_max_chunks: int = 5
 
     # --- v2 fusion ranking -------------------------------------------------

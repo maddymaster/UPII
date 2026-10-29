@@ -41,14 +41,18 @@ def test_no_answer_skips_generation_and_shows_context(mock_engine, mock_llm):
 @patch("upii.analysis.llm.LocalLLM")
 @patch("upii.analysis.search.SearchEngine")
 def test_ask_without_flag_still_generates(mock_engine, mock_llm):
+    from upii.analysis.llm import Answer
+
     mock_engine.return_value.search.return_value = _fake_results()
-    mock_llm.return_value.answer_with_citations.return_value = "It is $50k [1]."
+    mock_llm.return_value.answer.return_value = Answer(text="It is $50k [1].", found=True, cited=[1])
+    mock_llm.return_value.model_label.return_value = "llama3.2 (ollama, local)"
 
     result = runner.invoke(app, ["ask", "What is the Q3 budget?"])
 
     assert result.exit_code == 0
-    mock_llm.return_value.answer_with_citations.assert_called_once()
+    mock_llm.return_value.answer.assert_called_once()
     assert "Answer:" in result.stdout
+    assert "Sources used" in result.stdout and "doc-abc" in result.stdout
 
 
 @patch("upii.analysis.llm.LocalLLM")

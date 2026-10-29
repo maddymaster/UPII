@@ -33,6 +33,8 @@ class RankedChunk(Chunk):
     #   contributions -> weight * signal, i.e. each signal's share of `score`
     signals: Dict[str, float] = field(default_factory=dict)
     contributions: Dict[str, float] = field(default_factory=dict)
+    # Absolute cosine similarity to the query; None for non-vector candidates.
+    similarity: Optional[float] = None
 
 @dataclass
 class Task:

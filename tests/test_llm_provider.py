@@ -126,7 +126,7 @@ def test_mcp_ask_stays_local_and_returns_model(key_set_provider_local, tmp_path,
 
     class Engine:
         def search(self, q, limit=5, **_):
-            return []
+            return _chunks()
 
     svc = MCPService(mcp_config=MCPConfig(enabled=True), search_engine=Engine(), db=DB())
     out = svc.ask("Q3 budget?")
@@ -138,7 +138,7 @@ def test_overlay_stays_local_and_returns_model(key_set_provider_local, monkeypat
     from upii.overlay.app import OverlayAPI
 
     class Rehydrator:
-        def rehydrate(self, query, limit=5):
+        def rehydrate(self, query, limit=5, **_):
             return _chunks()
 
     monkeypatch.setattr("upii.overlay.app.ContextRehydrator", Rehydrator)

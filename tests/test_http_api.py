@@ -30,13 +30,15 @@ GAMMA = "Gamma staged capture: the procurement review moved to Thursday.\n"
 
 
 class FakeModel:
-    """Stands in for the SentenceTransformer behind Embedder: 8-d hash vectors."""
+    """Stands in for the SentenceTransformer behind Embedder: 8-d hash vectors,
+    unit-normalised like MiniLM's output (the similarity threshold assumes that)."""
 
     DIM = 8
 
     def _vec(self, text):
         digest = hashlib.sha256(text.encode("utf-8")).digest()
-        return [digest[i] / 255.0 for i in range(self.DIM)]
+        v = np.array([digest[i] / 255.0 for i in range(self.DIM)])
+        return list(v / np.linalg.norm(v))
 
     def encode(self, texts, **_):
         if isinstance(texts, str):
@@ -292,16 +294,16 @@ def test_ask_local_only_never_calls_remote(workspace, monkeypatch):
 
     with patch("upii.analysis.llm.LocalLLM._call_gemini") as gemini, \
          patch("upii.analysis.llm.ollama.list", return_value={"models": []}), \
-         patch("upii.analysis.llm.ollama.generate", return_value={"response": "local answer"}):
+         patch("upii.analysis.llm.ollama.generate", return_value={"response": "local answer [1]"}):
         default = client.post("/ask", json={"question": "Alpha?"})
         explicit = client.post("/ask", json={"question": "Alpha?", "local_only": True})
     gemini.assert_not_called()
     for resp in (default, explicit):
         assert resp.status_code == 200, resp.text
         body = resp.json()
-        assert body["answer"] == "local answer"
+        assert body["answer"] == "local answer [1]" and body["found"] is True
         assert body["model"] == {"name": config.llm_model, "provider": "ollama", "location": "local"}
-        assert body["sources"]
+        assert len(body["sources"]) == 1  # only the cited source
 
 
 def test_ask_local_only_errors_instead_of_mock_fallback(workspace, monkeypatch):

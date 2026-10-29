@@ -283,8 +283,9 @@ def ask(
     # 1. Retrieval
     search_engine = SearchEngine()
     try:
-        # We search with a slightly higher limit to filter
-        results = search_engine.search(question, limit=config.rag_max_chunks, weights=weights)
+        # Only chunks at or above rag_min_similarity reach the answer; none -> not found.
+        results = search_engine.search(question, limit=config.rag_max_chunks, weights=weights,
+                                       min_similarity=config.rag_min_similarity)
 
         if debug:
             _print_fusion_debug(results, weights)
@@ -306,20 +307,27 @@ def ask(
             console.print(f"[italic]{' '.join((r.text or '').split())[:200]}…[/italic]")
         return
 
+    if not results:
+        # Nothing relevant enough: say so instead of asking the model to improvise.
+        console.print(f"\n[yellow]Not found in your memory[/yellow] [dim](no passage reached "
+                      f"rag_min_similarity {config.rag_min_similarity:.2f}; no model was called)[/dim]")
+        return
+
     # 2. Generation
     try:
         llm = LocalLLM()
         with console.status("[bold green]Thinking...[/bold green]"):
-            answer = llm.answer_with_citations(question, results)
-        
+            answer = llm.answer(question, results)
+
         console.print("\n[bold]Answer:[/bold]")
-        console.print(answer)
+        console.print(answer.text)
         console.print(f"\n[dim]Answered by: {llm.model_label()}[/dim]")
-        
-        if results and "I don't know" not in answer:
-             console.print("\n[dim]Sources used:[/dim]")
-             for i, r in enumerate(results):
-                 console.print(f"[dim][{i+1}] {r.doc_hash}[/dim]")
+
+        # Only the sources the answer actually cites; none for a not-found answer.
+        if answer.found and answer.cited:
+            console.print("\n[dim]Sources used:[/dim]")
+            for n in answer.cited:
+                console.print(f"[dim][{n}] {results[n - 1].doc_hash}[/dim]")
 
     except Exception as e:
         console.print(f"[red]Generation failed: {e}[/red]")
