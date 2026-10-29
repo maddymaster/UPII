@@ -173,8 +173,15 @@ class MCPService:
         self._require("upii_ask")
         cap = max(1, int(self.cfg.max_chunks_per_call))
         limit = min(core_config.rag_max_chunks, cap)
-        raw = self.search_engine.search(question, limit=limit + cap)
+        raw = self.search_engine.search(question, limit=limit + cap,
+                                        min_similarity=core_config.rag_min_similarity)
         results = self._enrich_and_filter(raw)[:limit]
+        if not results:
+            # Nothing relevant enough (or nothing consented): no model call, no citations.
+            from upii.analysis.llm import NOT_FOUND_MESSAGE
+
+            self._log("upii_ask", question, [])
+            return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None, "citations": []}
         # Rebuild lightweight Chunk-likes for the LLM from the consented chunks
         # only — the model never sees a non-exposed source.
         from upii.core.types import Chunk
@@ -189,13 +196,17 @@ class MCPService:
             )
             for r in results
         ]
-        answer = self.llm.answer_with_citations(question, chunks)
+        answer = self.llm.answer(question, chunks)
         self._log("upii_ask", question, [r["chunk_id"] for r in results])
+        cited = [results[n - 1] for n in answer.cited] if answer.found else []
         return {
-            "answer": answer,
+            "answer": answer.text,
+            "found": answer.found,
+            "model": self.llm.model_info(),
+            # Only the sources the answer cites; never citations for a non-answer.
             "citations": [
                 {"chunk_id": r["chunk_id"], "doc_path": r["doc_path"], "source": r["source"]}
-                for r in results
+                for r in cited
             ],
         }
 

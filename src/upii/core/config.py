@@ -13,8 +13,20 @@ class Config:
     user_name: str = "Maddy"
     # LLM & RAG
     llm_model: str = "llama3.2" # Default to fast model
+    # Which model answers: "local" (Ollama on this machine) or "remote" (Gemini).
+    # Remote is used ONLY when set here (or via UPII_LLM_PROVIDER); a GEMINI_API_KEY
+    # on its own never switches answers to the cloud.
+    llm_provider: str = "local"
     embedding_model: str = "all-MiniLM-L6-v2"
-    rag_min_similarity: float = 0.5
+    # Answer paths (ask, MCP, overlay, HTTP /ask) only use chunks whose absolute
+    # cosine similarity to the question is at least this; if none pass, the answer is
+    # "not found" and no model is called. It is a conservative pre-filter for clearly
+    # unrelated questions: on the demo data, relevant and unrelated questions overlap
+    # between ~0.20 and ~0.25, so that grey zone is left to the model's NOT_FOUND
+    # flag. 0.20 keeps every scripted demo question (lowest 0.263) and every labelled
+    # eval query (lowest 0.315); `python eval/run_abstention_eval.py` checks both.
+    # Search and the retrieval eval ignore it.
+    rag_min_similarity: float = 0.20
     rag_max_chunks: int = 5
 
     # --- v2 fusion ranking -------------------------------------------------
@@ -63,7 +75,12 @@ class Config:
             # a user adds per docs/mcp_setup.md) rather than crashing startup with a
             # TypeError. MCP settings have their own loader (upii.mcp.config).
             known = {f.name for f in fields(cls)}
-            return cls(**{k: v for k, v in data.items() if k in known})
-        return cls()
+            cfg = cls(**{k: v for k, v in data.items() if k in known})
+        else:
+            cfg = cls()
+        env_provider = os.environ.get("UPII_LLM_PROVIDER", "").strip()
+        if env_provider:
+            cfg.llm_provider = env_provider
+        return cfg
 
 config = Config.load()

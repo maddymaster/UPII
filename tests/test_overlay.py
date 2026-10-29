@@ -16,7 +16,7 @@ def test_overlay_api_structure(monkeypatch):
     
     # Mock Rehydrator
     class MockRehydrator:
-        def rehydrate(self, query, limit=5):
+        def rehydrate(self, query, limit=5, **_):
             from upii.core.types import RankedChunk
             return [RankedChunk(
                 doc_hash="d1", chunk_hash="c1", text="Simulated Result", 
@@ -28,6 +28,13 @@ def test_overlay_api_structure(monkeypatch):
     class MockLLM:
         def answer_with_citations(self, query, context):
             return "Simulated Answer"
+
+        def answer(self, query, context):
+            from upii.analysis.llm import Answer
+            return Answer(text="Simulated Answer", found=True, cited=[])
+
+        def model_info(self):
+            return {"name": "mock", "provider": "mock", "location": "local"}
 
     monkeypatch.setattr("upii.overlay.app.ContextRehydrator", MockRehydrator)
     monkeypatch.setattr("upii.overlay.app.LocalLLM", MockLLM)

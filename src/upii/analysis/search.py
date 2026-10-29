@@ -20,12 +20,14 @@ class SearchEngine:
         time_filter: Optional[str] = None,
         limit: int = 5,
         weights: Optional[Dict[str, float]] = None,
+        min_similarity: Optional[float] = None,
     ) -> List[Chunk]:
         """
         Unified search via the v2 fusion ContextRehydrator.
 
         Returns RankedChunks (compatible with Chunk). ``weights`` optionally
-        overrides the configured fusion weights for this call.
+        overrides the configured fusion weights for this call; ``min_similarity``
+        drops weak matches before ranking (see ``ContextRehydrator.rehydrate``).
         """
         # Metric Tracking
         try:
@@ -36,4 +38,5 @@ class SearchEngine:
 
         from upii.analysis.rehydration import ContextRehydrator
         rehydrator = ContextRehydrator()
-        return rehydrator.rehydrate(query, time_filter, limit, weights=weights)
+        return rehydrator.rehydrate(query, time_filter, limit, weights=weights,
+                                    min_similarity=min_similarity)

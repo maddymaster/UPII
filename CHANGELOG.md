@@ -16,6 +16,53 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Changed
 
+- **The answer model is an explicit setting**, `llm_provider: local | remote` (default
+  `local`; `.upii_config.yaml` or `UPII_LLM_PROVIDER`). A `GEMINI_API_KEY` on its own no
+  longer switches answers to Gemini anywhere: CLI `ask` and `write`, the MCP server, the
+  overlay and the HTTP API all answer with Ollama unless the provider is `remote`.
+  `remote` without a key is an error (`ModelError`), not a quiet local fallback.
+- Every answer names its model: `upii ask` / `upii write` print `Answered by: …`; MCP
+  `upii_ask`, the overlay and HTTP `/ask` return `model` (`name`, `provider`, `location`).
+  `upii doctor` reports a remote provider as `OK (remote: …)` or `FAIL` without a key.
+- HTTP API: `UPII_API_ALLOW_REMOTE` is replaced by `llm_provider`. `/ask` with
+  `local_only: false` uses the configured provider; a remote provider with no key returns
+  `503 model_unavailable`. `/health` reports `configured_provider` and `remote.enabled`.
+- `LocalLLM(allow_remote=...)` → `LocalLLM(provider=...)`; new `LocalLLM.model_info()`.
+- **Answers abstain instead of guessing.** `rag_min_similarity` (defined but never
+  applied) now filters, before ranking, every candidate whose *absolute* cosine
+  similarity to the question is below it, on all answer paths (CLI `ask`, MCP
+  `upii_ask`, overlay, HTTP `/ask`). If none pass, the answer is "Not found in your
+  memory" and no model is called. Search and the retrieval eval are unaffected.
+- **Default `rag_min_similarity` 0.5 → 0.20.** Applied as-is, 0.5 would have answered
+  "not found" on 3 of the 12 labelled eval queries, and on the demo data on the
+  scripted "What is blocking Project Firewatch?" (cosine 0.271). On the demo data
+  relevant and unrelated questions overlap (~0.20–0.25), so the threshold is a
+  conservative pre-filter and the grey zone is left to the model's `NOT_FOUND` flag.
+  At 0.20: eval queries 12/12 answer, eval unrelated probes 8/8 abstain, every scripted
+  demo question passes (lowest 0.263). New `eval/run_abstention_eval.py` re-runs this
+  and fails if any scripted demo question would be refused.
+- **"Not found" is a structured flag, not phrase matching.** The prompt asks the model
+  to reply `NOT_FOUND` when the context lacks the answer; new `LocalLLM.answer()`
+  returns `Answer(text, found, cited)`. Sources are listed only when the answer cites
+  them (`[n]`), so a non-answer never shows citations. Replaces the CLI's exact
+  "I don't know" substring check. The prompt's "answer generic questions anyway" rule
+  is replaced by the abstention rule.
+- HTTP `/ask` and MCP `upii_ask` return `found`; their `sources` / `citations` list
+  only cited passages. `RankedChunk.similarity` carries the absolute cosine
+  (`/ask` `debug: true` shows it).
+- **Graph edges store the extractor rule's confidence** instead of a hardcoded 1.0
+  (project 0.95, titled person / corporate-suffix org 0.9, given name 0.75, acronym
+  org 0.70); the relational signal scores each linked chunk by it, so a chunk reached
+  through a surer match ranks above one reached through a weaker one. A chunk linked
+  twice keeps the higher confidence, independent of order. Existing memories keep
+  1.0 edges until re-ingested with `upii ingest --force`.
+  **Measured honestly: no retrieval change on the eval set.** New
+  `eval/run_relational_eval.py` sweeps the relational weight with uniform vs rule
+  confidences: identical at every weight (Recall@1 0.833 at weight 0; 0.750 at
+  0.25–1.0 either way). Each entity is always matched by one rule, so within a
+  single-entity query its edges share a confidence and max-normalise to the same
+  score; it can only matter for queries naming entities found by different rules.
+  The relational weight stays 0.
 - **Offline by default once the embedding model is cached.** Importing the embedder
   sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` when the model is already on
   disk (local folder, or a hub snapshot with `modules.json` + weights under

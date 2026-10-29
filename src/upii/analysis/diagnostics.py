@@ -67,7 +67,13 @@ class Doctor:
         try:
             # Check for mock fallback in LocalLLM
             from upii.analysis.llm import LocalLLM
-            llm = LocalLLM()
+            from upii.core.errors import ModelError
+            try:
+                llm = LocalLLM()
+            except ModelError as e:
+                return f"FAIL: {e}"
+            if llm.use_gemini:
+                return f"OK (remote: {llm.gemini_model}, llm_provider=remote)"
             if llm.is_mock:
                  return "WARN: Ollama offline (Using Mock LLM)"
             

@@ -34,6 +34,10 @@ class _Candidate:
     index: int = 0
     raw: Dict[str, float] = field(default_factory=lambda: {s: 0.0 for s in SIGNALS})
     sources: set = field(default_factory=set)
+    # Absolute cosine similarity to the query (None if vector search never found it).
+    # Unlike the semantic *signal*, this is not normalised across candidates, so it
+    # can say "nothing here is relevant" when even the best match is weak.
+    cosine: Optional[float] = None
 
     def bump(self, signal: str, value: float, source: str) -> None:
         """Record ``value`` for ``signal`` (keeping the max) and note the source."""
@@ -79,11 +83,17 @@ class ContextRehydrator:
         time_filter: Optional[str] = None,
         limit: int = 5,
         weights: Optional[Dict[str, float]] = None,
+        min_similarity: Optional[float] = None,
     ) -> List[RankedChunk]:
         """Retrieve, fuse-rank and deduplicate context for ``query``.
 
         ``weights`` optionally overrides the configured fusion weights (any subset
         of ``semantic`` / ``temporal`` / ``relational``).
+
+        ``min_similarity`` (answer paths pass ``config.rag_min_similarity``) drops,
+        before ranking, every candidate whose absolute cosine similarity to the query
+        is below it, including candidates only the calendar or entity signals found.
+        An empty result means "not found". ``None`` (search, eval) keeps everything.
         """
         w = self._resolve_weights(weights)
 
@@ -94,6 +104,11 @@ class ContextRehydrator:
         self._collect_temporal(query, candidates)
         self._collect_relational(query, candidates)
 
+        if min_similarity is not None:
+            candidates = {
+                k: c for k, c in candidates.items()
+                if c.cosine is not None and c.cosine >= min_similarity
+            }
         return self._fuse(candidates, w, limit)
 
     # -- signal collection -----------------------------------------------------
@@ -125,6 +140,9 @@ class ContextRehydrator:
                 candidates[chk.chunk_hash] = cand
 
             cand.bump("semantic", self._distance_to_similarity(hit.get("distance")), "vector")
+            cosine = self._distance_to_cosine(hit.get("distance"))
+            if cosine is not None and (cand.cosine is None or cosine > cand.cosine):
+                cand.cosine = cosine
             # A retrieved chunk also carries a temporal (recency) signal from when
             # it was ingested — recent memories are gently preferred.
             recency = self._recency_score(hit.get("timestamp"), now)
@@ -177,7 +195,10 @@ class ContextRehydrator:
                 edges = []
             for edge in edges:
                 chunk_hash = edge["chunk_hash"]
-                rel_score = float(edge.get("confidence") or 1.0)
+                # The extractor rule's confidence (project 0.95 ... acronym org 0.70):
+                # a chunk linked through a surer match scores higher.
+                conf = edge.get("confidence")
+                rel_score = float(conf) if conf is not None else 1.0
                 cand = candidates.get(chunk_hash)
                 if cand is None:
                     cand = _Candidate(
@@ -231,6 +252,7 @@ class ContextRehydrator:
                     source_signal=dominant,
                     signals=signals,
                     contributions=contributions,
+                    similarity=c.cosine,
                 )
             )
 
@@ -258,6 +280,15 @@ class ContextRehydrator:
         if distance is None:
             return 0.5
         return 1.0 / (1.0 + max(0.0, distance))
+
+    @staticmethod
+    def _distance_to_cosine(distance: Optional[float]) -> Optional[float]:
+        """LanceDB's default metric is *squared* L2; for unit-length embeddings
+        (MiniLM normalises its output) ``|a-b|^2 = 2 - 2cos``, so ``cos = 1 - d/2``.
+        Checked against numpy cosine on the eval corpus (eval/run_abstention_eval.py)."""
+        if distance is None:
+            return None
+        return max(-1.0, min(1.0, 1.0 - distance / 2.0))
 
     def _recency_score(self, when, now: datetime) -> float:
         """Exponential-decay recency in [0,1] from a timestamp to ``now``.

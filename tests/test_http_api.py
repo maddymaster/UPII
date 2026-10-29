@@ -30,13 +30,15 @@ GAMMA = "Gamma staged capture: the procurement review moved to Thursday.\n"
 
 
 class FakeModel:
-    """Stands in for the SentenceTransformer behind Embedder: 8-d hash vectors."""
+    """Stands in for the SentenceTransformer behind Embedder: 8-d hash vectors,
+    unit-normalised like MiniLM's output (the similarity threshold assumes that)."""
 
     DIM = 8
 
     def _vec(self, text):
         digest = hashlib.sha256(text.encode("utf-8")).digest()
-        return [digest[i] / 255.0 for i in range(self.DIM)]
+        v = np.array([digest[i] / 255.0 for i in range(self.DIM)])
+        return list(v / np.linalg.norm(v))
 
     def encode(self, texts, **_):
         if isinstance(texts, str):
@@ -51,7 +53,7 @@ def workspace(tmp_path, monkeypatch):
     data.mkdir()
     monkeypatch.chdir(data)
     for var in ("UPII_API_KEY", "UPII_ALLOWED_ORIGINS", "UPII_ALLOWED_HOSTS",
-                "UPII_API_ALLOW_REMOTE", "GEMINI_API_KEY"):
+                "UPII_LLM_PROVIDER", "GEMINI_API_KEY"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setattr(Embedder, "_instance", FakeModel())
     monkeypatch.setattr(Doctor, "check_model", lambda self: "OK (stubbed)")
@@ -59,6 +61,7 @@ def workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "vector_store_path", str(data / "vectors"))
     monkeypatch.setattr(config, "staging_db_path", str(data / "staging.db"))
     monkeypatch.setattr(config, "gemini_api_key", "")
+    monkeypatch.setattr(config, "llm_provider", "local")
     yield tmp_path, data
 
 
@@ -105,9 +108,10 @@ def test_health_on_empty_folder_is_ready(workspace):
         assert body["checks"][check]["status"] == "READY", body["checks"][check]
     assert all(c["status"] != "FAIL" for c in body["checks"].values())
     model = body["answer_model"]
-    assert model["default"] == "local" and model["local"]["provider"] == "ollama"
+    assert model["default"] == "local" and model["configured_provider"] == "local"
+    assert model["local"]["provider"] == "ollama"
     assert model["remote"] == {"provider": "gemini", "name": config.gemini_model,
-                               "key_configured": False, "allowed": False}
+                               "key_configured": False, "enabled": False}
     # Health never creates the memory store; only the audit trail (staging.db) appears.
     assert not (data / "upii.db").exists() and not (data / "vectors").exists()
 
@@ -285,21 +289,21 @@ def test_ask_local_only_never_calls_remote(workspace, monkeypatch):
     client = _client()
     client.post("/ingest", json={"path": str(_notes(root))})
     monkeypatch.setattr(config, "gemini_api_key", "AIza-real-looking-key")
-    monkeypatch.setenv("UPII_API_ALLOW_REMOTE", "1")  # even with remote allowed server-side
+    monkeypatch.setattr(config, "llm_provider", "remote")  # even with remote configured
     client = _client()
 
     with patch("upii.analysis.llm.LocalLLM._call_gemini") as gemini, \
          patch("upii.analysis.llm.ollama.list", return_value={"models": []}), \
-         patch("upii.analysis.llm.ollama.generate", return_value={"response": "local answer"}):
+         patch("upii.analysis.llm.ollama.generate", return_value={"response": "local answer [1]"}):
         default = client.post("/ask", json={"question": "Alpha?"})
         explicit = client.post("/ask", json={"question": "Alpha?", "local_only": True})
     gemini.assert_not_called()
     for resp in (default, explicit):
         assert resp.status_code == 200, resp.text
         body = resp.json()
-        assert body["answer"] == "local answer"
+        assert body["answer"] == "local answer [1]" and body["found"] is True
         assert body["model"] == {"name": config.llm_model, "provider": "ollama", "location": "local"}
-        assert body["sources"]
+        assert len(body["sources"]) == 1  # only the cited source
 
 
 def test_ask_local_only_errors_instead_of_mock_fallback(workspace, monkeypatch):
@@ -323,22 +327,30 @@ def test_ask_local_only_errors_instead_of_mock_fallback(workspace, monkeypatch):
     gemini2.assert_not_called()
 
 
-def test_ask_remote_needs_client_opt_in_and_server_permission(workspace, monkeypatch):
+def test_ask_remote_needs_client_opt_in_and_remote_provider(workspace, monkeypatch):
     root, _ = workspace
     client = _client()
     client.post("/ingest", json={"path": str(_notes(root))})
     monkeypatch.setattr(config, "gemini_api_key", "AIza-real-looking-key")
 
-    with patch("upii.analysis.llm.LocalLLM._call_gemini") as gemini:
-        denied = _client().post("/ask", json={"question": "Alpha?", "local_only": False})
-    assert _is_error(denied, 403, "remote_not_allowed")
+    # Key set, provider local: local_only=false still answers locally.
+    with patch("upii.analysis.llm.LocalLLM._call_gemini") as gemini, \
+         patch("upii.analysis.llm.ollama.list", return_value={"models": []}), \
+         patch("upii.analysis.llm.ollama.generate", return_value={"response": "local answer"}):
+        body = client.post("/ask", json={"question": "Alpha?", "local_only": False}).json()
     gemini.assert_not_called()
+    assert body["model"]["location"] == "local"
 
-    monkeypatch.setenv("UPII_API_ALLOW_REMOTE", "1")
+    monkeypatch.setattr(config, "llm_provider", "remote")
     with patch("upii.analysis.llm.LocalLLM._call_gemini", return_value="remote answer"):
-        body = _client().post("/ask", json={"question": "Alpha?", "local_only": False}).json()
-    assert body["model"]["location"] == "remote" and body["model"]["provider"] == "gemini"
+        body = client.post("/ask", json={"question": "Alpha?", "local_only": False}).json()
+    assert body["model"] == {"name": config.gemini_model, "provider": "gemini", "location": "remote"}
     assert body["answer"] == "remote answer"
+
+    # Remote configured but no key: an explicit error, not a quiet local answer.
+    monkeypatch.setattr(config, "gemini_api_key", "")
+    assert _is_error(client.post("/ask", json={"question": "Alpha?", "local_only": False}),
+                     503, "model_unavailable")
 
 
 # -- audit --------------------------------------------------------------------
