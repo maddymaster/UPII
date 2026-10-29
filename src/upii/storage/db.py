@@ -541,7 +541,10 @@ class DB:
     def write_entities_for_doc(self, doc_id: str, mentions) -> int:
         """(Re)write the entity nodes + chunk edges for one document, idempotently.
 
-        ``mentions`` is an iterable of ``(name, category, chunk_hash, context)``.
+        ``mentions`` is an iterable of ``(name, category, chunk_hash, context,
+        confidence)``: the confidence of the extractor rule that matched (a 4-tuple
+        without it is stored as 1.0). If one entity is linked to the same chunk more
+        than once, the edge keeps the highest confidence, independent of order.
         Existing edges for ``doc_id`` are deleted first, so a forced re-ingest does
         not duplicate them; entity and edge ids are content-addressed, so re-writing
         identical mentions converges to the identical rows. Returns the edge count.
@@ -554,7 +557,9 @@ class DB:
             cur = conn.cursor()
             cur.execute("DELETE FROM entity_edges WHERE source_doc_id = ?", (doc_id,))
             n = 0
-            for name, category, chunk_hash, context in mentions:
+            for mention in mentions:
+                name, category, chunk_hash, context = mention[:4]
+                confidence = float(mention[4]) if len(mention) > 4 else 1.0
                 eid = self._entity_id(name, category)
                 cur.execute(
                     "INSERT OR IGNORE INTO entities (entity_id, name, category) VALUES (?, ?, ?)",
@@ -562,10 +567,12 @@ class DB:
                 )
                 edge_id = hashlib.sha1(f"{eid}\0{chunk_hash}".encode("utf-8")).hexdigest()[:16]
                 cur.execute(
-                    """INSERT OR IGNORE INTO entity_edges
+                    """INSERT INTO entity_edges
                        (edge_id, entity_id, chunk_hash, source_doc_id, context, confidence)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (edge_id, eid, chunk_hash, doc_id, context, 1.0),
+                       VALUES (?, ?, ?, ?, ?, ?)
+                       ON CONFLICT(edge_id) DO UPDATE
+                       SET confidence = MAX(confidence, excluded.confidence)""",
+                    (edge_id, eid, chunk_hash, doc_id, context, confidence),
                 )
                 n += 1
             conn.commit()

@@ -96,9 +96,10 @@ def _ingest_core(doc, db, vector_store, embedder, chunker, force, flush=None):
     # 4b. Extract entities per chunk and write the knowledge-graph nodes + edges.
     #     Edges are keyed by chunk_hash, so two entities in the same chunk co-occur;
     #     write_entities_for_doc clears this doc's prior edges first, so it is
-    #     idempotent under re-ingest and deterministic (content-addressed ids).
+    #     idempotent under re-ingest and deterministic (content-addressed ids). Each
+    #     edge stores the confidence of the extractor rule that produced it.
     mentions = [
-        (ent.name, ent.category, ch.chunk_hash, ent.context)
+        (ent.name, ent.category, ch.chunk_hash, ent.context, ent.confidence)
         for ch in chunks
         for ent in _ENTITY_EXTRACTOR.extract(ch.text)
     ]

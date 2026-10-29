@@ -50,6 +50,19 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 - HTTP `/ask` and MCP `upii_ask` return `found`; their `sources` / `citations` list
   only cited passages. `RankedChunk.similarity` carries the absolute cosine
   (`/ask` `debug: true` shows it).
+- **Graph edges store the extractor rule's confidence** instead of a hardcoded 1.0
+  (project 0.95, titled person / corporate-suffix org 0.9, given name 0.75, acronym
+  org 0.70); the relational signal scores each linked chunk by it, so a chunk reached
+  through a surer match ranks above one reached through a weaker one. A chunk linked
+  twice keeps the higher confidence, independent of order. Existing memories keep
+  1.0 edges until re-ingested with `upii ingest --force`.
+  **Measured honestly: no retrieval change on the eval set.** New
+  `eval/run_relational_eval.py` sweeps the relational weight with uniform vs rule
+  confidences: identical at every weight (Recall@1 0.833 at weight 0; 0.750 at
+  0.25–1.0 either way). Each entity is always matched by one rule, so within a
+  single-entity query its edges share a confidence and max-normalise to the same
+  score; it can only matter for queries naming entities found by different rules.
+  The relational weight stays 0.
 
 ## [0.9.0] - 2026-10-29
 
