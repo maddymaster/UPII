@@ -14,6 +14,40 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Added
+
+- **Local HTTP API** (out-of-phase, approved for the Sachiva Smriti demo):
+  `upii serve --host 127.0.0.1 --port 8765 [--data-dir DIR]` (new module `src/upii/api/`,
+  optional extra `pip install "upii[api]"`: FastAPI + uvicorn; the default install is
+  unchanged). Endpoints `GET /health`, `POST /ingest` (+ `GET /ingest/jobs/{id}` for
+  `"background": true`), `GET /inbox`, `POST /inbox/{id}/approve|reject`, `POST /search`,
+  `POST /ask`, `GET /sources`, `GET /audit` call the same in-process code as the CLI;
+  nothing shells out. Memory is the folder the server starts in, or `--data-dir`.
+  - Binds to localhost by default and accepts only loopback `Host` headers (DNS-rebinding
+    guard; extend with `UPII_ALLOWED_HOSTS`). Optional `UPII_API_KEY` → required
+    `X-API-Key` header. CORS only for origins in `UPII_ALLOWED_ORIGINS`.
+  - `/ask` defaults to `local_only: true`: it never calls a remote model, even with
+    `GEMINI_API_KEY` set, and returns `503 local_model_unavailable` instead of silently
+    falling back to the mock. Gemini needs both `"local_only": false` from the client
+    and `UPII_API_ALLOW_REMOTE=1` on the server; every answer names its model.
+  - Every request is appended to the existing audit trail (`audit_logs` in
+    `staging.db`, source `api`): endpoint, status, result count and a SHA-256 of the
+    query, never the query, document text or key. `GET /audit` pages it newest first.
+  - Errors are always `{"error": "<code>", "detail": "<message>"}` with a matching
+    status; a missing path is `400 path_not_found`, a path with nothing ingestible
+    `422 no_supported_files`.
+- `upii.ambient.inbox` — approve/reject logic moved out of the `upii inbox` command so
+  the CLI and the API share one implementation (CLI output and behaviour unchanged).
+- `LocalLLM(allow_remote=...)` (default `True`, CLI behaviour unchanged);
+  `DB.list_documents`; `DB.get_document_by_id` now also returns `content_hash`;
+  `StagingDB.get_audit_logs(offset=...)`.
+- `tests/test_http_api.py` — 18 tests over real temporary SQLite, LanceDB and staging
+  stores (embedder, Ollama and Gemini mocked): health on an empty folder, ingest →
+  search/ask with hashes, re-ingest skipped, background job, inbox approve makes a
+  capture searchable, reject/conflict paths, API key, CORS, Host guard, `local_only`
+  never calling the remote path, `/audit` recording calls by hash only, `--data-dir`.
+  `dev` extra gains `fastapi` and `httpx` (for `TestClient`).
+
 ### Fixed
 
 - `upii doctor` — a fresh install with nothing ingested now reports cyan `READY` for sqlite, vector_db and ingestion instead of red `FAIL`, and doctor no longer creates an empty `upii.db`; a corrupt or unreadable database still reports `FAIL`.
