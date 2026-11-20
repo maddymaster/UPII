@@ -223,11 +223,10 @@ class FileSystemSource(Source):
             t = self._timers.pop(path, None)
             if t:
                 t.cancel()
-        # Always emit a delete event for watchdog events (renames fire on_moved
-        # regardless of whether the file was previously captured). The cache
-        # guard caused lost deletes when a file was created and immediately
-        # renamed before its creation settled into the cache.
-        self._handle_delete(path)
+        # Only emit a delete for files we had actually captured.
+        if path in self._cache:
+            self._handle_delete(path)
+            del self._cache[path]
 
     # -- polling backend (fallback) ----------------------------------------
 
