@@ -5,6 +5,23 @@ from upii.ambient.watcher import FileSystemSource
 from upii.ambient.storage import StagingDB
 from upii.core.features import features
 
+
+def wait_for(cond, timeout=10.0, min_wait=0.0, interval=0.05):
+    """Poll until cond() is truthy (something appeared) or `timeout` passes; return its last value.
+
+    Used only where a test waits for an event, log row or capture to APPEAR, so a slow machine
+    gets more time instead of a flaky failure. `min_wait` keeps the original fixed window when
+    the same check also asserts that nothing extra happened (e.g. an exact count).
+    Sleeps before checks that something did NOT happen stay fixed (see test_ignored_files).
+    """
+    start = time.monotonic()
+    while True:
+        value = cond()
+        elapsed = time.monotonic() - start
+        if (value and elapsed >= min_wait) or elapsed >= timeout:
+            return value
+        time.sleep(interval)
+
 @pytest.fixture
 def watcher_env(tmp_path):
     # Setup paths
@@ -54,10 +71,8 @@ def test_debounce_and_staging(watcher_env):
     target = watch_dir / "note.md"
     target.write_text("Draft 1")
     
-    # Wait > debounce
-    time.sleep(0.5)
-    
-    events = db.get_pending_events()
+    # Wait > debounce, until the event appears (exact count still checked no earlier than 0.5 s)
+    events = wait_for(db.get_pending_events, min_wait=0.5)
     assert len(events) == 1
     assert events[0]['event_type'] == 'created'
     
@@ -75,15 +90,17 @@ def test_delete_handling(watcher_env):
     target.write_text("Hello")
     
     source.start()
-    time.sleep(0.5)
     
-    # Verify created
-    events = db.get_pending_events()
+    # Verify created (exact count still checked no earlier than 0.5 s)
+    events = wait_for(db.get_pending_events, min_wait=0.5)
     assert len(events) == 1
     
     # Now Delete
     os.remove(target)
-    time.sleep(0.5)
+    def delete_logged():
+        logs = db.get_audit_logs()
+        return bool(logs) and 'deleted' in str(logs[0]['details'])
+    wait_for(delete_logged)
     
     # Should see delete event
     # We need to re-fetch events. status='pending' might show both if not handled?
@@ -105,9 +122,12 @@ def test_rename_behavior(watcher_env):
     # Rename
     dest = watch_dir / "new.md"
     os.rename(src, dest)
-    time.sleep(0.5)
     
-    logs = db.get_audit_logs(limit=5)
+    def renamed_logs():
+        logs = db.get_audit_logs(limit=5)
+        s = str([str(l['details']) for l in logs])
+        return logs if ('deleted' in s and 'created' in s and 'new.md' in s) else None
+    logs = wait_for(renamed_logs) or db.get_audit_logs(limit=5)
     # Expect: [capture(created new), capture(deleted old), capture(created old)...]
     # Check for both delete and create
     actions = [l['action'] for l in logs]
