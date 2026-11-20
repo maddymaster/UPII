@@ -14,6 +14,14 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Fixed
+
+- Flaky `tests/test_watcher_advanced.py::test_rename_behavior` (T-012). On a loaded Linux machine
+  the capture of the renamed file sometimes had not settled within the test's fixed 0.5 s wait
+  (the delete was always recorded). Tests that wait for an event, log row or capture to appear now
+  poll for it (up to 10 s); waits before checks that something did not happen stay fixed, and
+  exact-count checks still run no earlier than 0.5 s. No change to `src/`.
+
 ## [0.9.1] - 2026-10-29
 
 ### Changed
