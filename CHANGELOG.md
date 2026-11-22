@@ -35,6 +35,11 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Fixed
 
+- `upii ask` / `search` no longer print tqdm progress bars (model loading or batching).
+  ``transformers.utils.logging.disable_progress_bar()`` and the ``sentence_transformers``
+  package root logger set to WARNING in ``Embedder.get_instance()`` suppress both "Loading weights"
+  and "Batches" output. No bars by design (even without ``--debug``).
+
 - The overlay lists only the sources the answer cites, each with its file path and a
   one-line excerpt, and none when the model abstains (T-046). It used to list every
   retrieved passage with only its ranking signal (for example `semantic:1.00+temporal:0.25`),
@@ -65,7 +70,6 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 - The `upii demo` command (`investor`, `customer`, and `seed` modes). These printed scripted
   sales pitches or injected fake entities instead of going through the ingestion pipeline.
   They must never be used as evidence. (T-004)
-
 ## [0.9.1] - 2026-10-29
 
 ### Changed

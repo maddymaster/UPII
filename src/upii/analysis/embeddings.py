@@ -74,6 +74,11 @@ class Embedder:
     def get_instance(cls):
         if cls._instance is None:
             model_name = getattr(config, 'embedding_model', 'all-MiniLM-L6-v2')
+            # Suppress tqdm progress bars during model loading and encoding.
+            from transformers.utils.logging import disable_progress_bar  # noqa: E402
+            disable_progress_bar()
+            import logging  # noqa: E402
+            logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
             cls._instance = SentenceTransformer(model_name)
         return cls._instance
 
