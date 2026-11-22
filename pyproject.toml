@@ -44,7 +44,8 @@ dependencies = [
 
 [project.optional-dependencies]
 overlay = [
-    "pynput>=1.7",            # Cmd+Shift+K capture overlay (desktop only)
+    "pynput>=1.7",            # Cmd+Shift+K global hotkey (desktop only)
+    "pywebview>=5.0",         # overlay window; on macOS this pulls in pyobjc (~20 MB)
 ]
 mcp = [
     "mcp>=1.2.0,<2",          # official MCP Python SDK (stdio server); local-only, optional

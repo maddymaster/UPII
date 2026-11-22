@@ -16,6 +16,14 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Added
 
+- `upii overlay` starts the desktop overlay (T-047). The `overlay` extra now declares
+  `pywebview` (on macOS it brings in pyobjc) next to `pynput`, so `pip install "upii[overlay]"`
+  is enough. Without the extra, the command says which package is missing and how to install it.
+  On macOS it also explains the Accessibility permission the Cmd+Shift+K hotkey needs. The
+  README documents it.
+
+### Added
+
 - `upii doctor` now includes an **embedding** check (READY when the model is not yet
   loaded, OK when cached on disk, WARN when the embedding model file is missing — the
   first ingest will download it). Never downloads or imports sentence-transformers.
