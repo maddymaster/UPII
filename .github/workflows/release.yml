@@ -4,14 +4,26 @@ on:
   push:
     tags:
       - 'v*'
+  # Build-only runs: no release is created (see the `release` job's `if`).
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - 'requirements.txt'
+      - 'upii.spec'
+      - 'pyproject.toml'
 
 jobs:
   build:
     name: Build binaries
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v4
@@ -22,20 +34,31 @@ jobs:
           python-version: '3.11'   # must satisfy requires-python (>=3.10,<3.13)
 
       - name: Install dependencies
+        # requirements.txt installs the package from pyproject.toml plus the build tools,
+        # so binaries are built from the same versions the test suite runs on.
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build with PyInstaller (Mac)
-        if: runner.os == 'macOS'
-        run: |
-          chmod +x scripts/build.sh
-          ./scripts/build.sh
+      - name: Build with PyInstaller
+        run: pyinstaller --clean --noconfirm upii.spec
 
-      - name: Build with PyInstaller (Windows)
-        if: runner.os == 'Windows'
+      - name: Smoke-test the binary (upii doctor on a clean folder)
         run: |
-          scripts\build.bat
+          bin="$PWD/dist/upii"
+          [ "$RUNNER_OS" = "Windows" ] && bin="$PWD/dist/upii.exe"
+          work=$(mktemp -d)
+          cd "$work"
+          export HF_HOME="$work/hf" XDG_CACHE_HOME="$work/cache" SENTENCE_TRANSFORMERS_HOME="$work/st"
+          set +e
+          out=$("$bin" doctor 2>&1)
+          rc=$?
+          set -e
+          echo "$out"
+          if [ "$rc" -ne 0 ] || echo "$out" | grep -q "FAIL"; then
+            echo "upii doctor failed on $RUNNER_OS (rc=$rc)" >&2
+            exit 1
+          fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -46,6 +69,8 @@ jobs:
   release:
     name: Create Release
     needs: build
+    # Only a pushed v* tag publishes. Pull-request and manual runs stop after the build.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     # The repo default for GITHUB_TOKEN is read-only, so creating a release 403s.
     # Grant write scope here rather than repo-wide, to keep every other job read-only.
@@ -53,15 +78,16 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             upii-macOS/upii
             upii-Windows/upii.exe
+            upii-Linux/upii
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

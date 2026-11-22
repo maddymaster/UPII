@@ -67,6 +67,14 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   encode (T-054; found by the new release-build smoke test). The `ask --debug` table had the
   same character. Both now use "->".
 
+- Release builds (T-011). `release.yml` failed on every tag because `requirements.txt` pinned
+  `lancedb==0.5.0`, which has no wheels for current Python. `requirements.txt` now installs the
+  package from `pyproject.toml` (the single source of dependencies) plus the test and build
+  tools, so binaries are built from the versions the test suite runs on. The workflow builds
+  macOS, Windows and Linux from `upii.spec`, runs `upii doctor` on each binary in an empty
+  folder, and also runs on `workflow_dispatch` and on pull requests that touch the release
+  files. Only a pushed `v*` tag creates a GitHub release.
+
 ### Removed
 
 - The `upii demo` command (`investor`, `customer`, and `seed` modes). These printed scripted

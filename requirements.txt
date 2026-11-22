@@ -1,19 +1,14 @@
-typer==0.9.0
-click<8.2  # typer 0.9.0 is incompatible with click>=8.2 (breaking API changes)
-rich==13.7.0
-pydantic==2.5.3
-lancedb==0.5.0
-pyarrow==14.0.2
-sqlite-utils==3.36
-sentence-transformers==2.3.1
-torch
-ollama==0.1.6
-PyYAML==6.0.1
-watchdog>=4.0.0
-tenacity==8.2.3
-pypdf==3.17.4
-pytest==7.4.4
+# Runtime dependencies live in pyproject.toml (the single source of truth); "." installs
+# the package with them. The old frozen pins here (lancedb==0.5.0 and others) no longer
+# had wheels for current Python versions, which broke every release build.
+.
+
+# Tests
+pytest>=7.4
 psutil  # required by tests/perf/test_long_running.py
-numpy<2
-pandas
+
+# Binary builds (release.yml, scripts/build.*)
 pyinstaller
+# setuptools 81 removed pkg_resources.NullProvider, which PyInstaller's pyi_rth_pkgres
+# runtime hook needs inside the frozen binary.
+setuptools<81
