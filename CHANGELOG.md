@@ -14,6 +14,17 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ## [Unreleased]
 
+### Added
+
+- `upii doctor` now includes an **embedding** check (READY when the model is not yet
+  loaded, OK when cached on disk, WARN when the embedding model file is missing — the
+  first ingest will download it). Never downloads or imports sentence-transformers.
+- Fix remediation hints after every WARN / FAIL line in `upii doctor` output.
+  A summary line (`doctor: PASS` or `doctor: FAIL (n checks)`) is printed at the end.
+  The CLI exits with code 1 when any check FAILs, 0 otherwise.
+- `scripts/release/smoke_install_check.sh <wheel>` — smoke-test a wheel on a fresh
+  install in an empty directory with HF_HUB_OFFLINE=1; exits non-zero if doctor fails.
+
 ### Fixed
 
 - The overlay lists only the sources the answer cites, each with its file path and a
