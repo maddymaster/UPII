@@ -5,6 +5,7 @@ import os
 import sys
 from typing import Optional
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from upii.core.config import config
@@ -18,6 +19,45 @@ console = Console()
 # Local MCP server subcommands (`upii mcp serve|enable|disable|status`).
 from upii.mcp.cli import mcp_app
 app.add_typer(mcp_app, name="mcp")
+
+
+def _source_paths(results) -> dict:
+    """doc_hash -> document path as stored at ingest, for display. Read-only: never
+    creates a store (an empty folder stays empty); unknown hashes are left out."""
+    paths = {}
+    if not os.path.exists(config.db_path):
+        return paths
+    try:
+        from upii.storage.db import DB
+        db = DB()
+        for h in {r.doc_hash for r in results}:
+            doc = db.get_document_by_id(h)
+            if doc and doc.get("source_path"):
+                paths[h] = doc["source_path"]
+    except Exception:
+        pass
+    return paths
+
+
+def _display_path(path: str) -> str:
+    """Relative to the current folder when inside it, else with ~ for the home folder."""
+    try:
+        rel = os.path.relpath(path)
+        if not rel.startswith(".."):
+            return rel
+    except ValueError:  # another drive on Windows
+        pass
+    home = os.path.expanduser("~")
+    return "~" + path[len(home):] if path.startswith(home + os.sep) else path
+
+
+def _source_label(r, paths: dict) -> str:
+    return _display_path(paths[r.doc_hash]) if r.doc_hash in paths else r.doc_hash
+
+
+def _excerpt(text, width: int = 240) -> str:
+    flat = " ".join((text or "").split())
+    return flat if len(flat) <= width else flat[: width - 1].rstrip() + "…"
 
 
 def _print_fusion_debug(results, weights: Optional[dict]) -> None:
@@ -336,9 +376,10 @@ def ask(
             console.print("\n[yellow]No relevant context found.[/yellow]")
             return
         console.print("\n[bold]Retrieved context[/bold] [dim](generation skipped)[/dim]:")
+        paths = _source_paths(results)
         for i, r in enumerate(results):
-            console.print(f"\n[dim][{i+1}][/dim] [blue]{r.doc_hash}[/blue]")
-            console.print(f"[italic]{' '.join((r.text or '').split())[:200]}…[/italic]")
+            console.print(f"\n[dim]\\[{i+1}][/dim] [blue]{escape(_source_label(r, paths))}[/blue]")
+            console.print(f"[italic]{escape(_excerpt(r.text))}[/italic]")
         return
 
     if not results:
@@ -360,8 +401,11 @@ def ask(
         # Only the sources the answer actually cites; none for a not-found answer.
         if answer.found and answer.cited:
             console.print("\n[dim]Sources used:[/dim]")
+            paths = _source_paths([results[n - 1] for n in answer.cited])
             for n in answer.cited:
-                console.print(f"[dim][{n}] {results[n - 1].doc_hash}[/dim]")
+                r = results[n - 1]
+                console.print(f"\\[{n}] {escape(_source_label(r, paths))}")
+                console.print(f"    [dim]{escape(_excerpt(r.text))}[/dim]")
 
     except Exception as e:
         console.print(f"[red]Generation failed: {e}[/red]")

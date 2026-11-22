@@ -117,6 +117,25 @@ def test_cli_relevant_question_answers_with_cited_sources(memory):
     memory.assert_called_once()
 
 
+def test_cli_sources_show_file_and_passage_not_hash(memory):
+    from upii.cli import app
+
+    result = CliRunner().invoke(app, ["ask", RELATED])
+    assert result.exit_code == 0, result.output
+    sources = result.stdout.split("Sources used")[1]
+    assert "omega.md" in sources          # the file the answer came from
+    assert "hiring.md" not in sources     # an uncited document is not listed
+    assert " ".join(OMEGA.split())[:40] in " ".join(sources.split())  # a passage excerpt
+
+
+def test_cli_no_answer_shows_file_paths(memory):
+    from upii.cli import app
+
+    result = CliRunner().invoke(app, ["ask", RELATED, "--no-answer"])
+    assert result.exit_code == 0, result.output
+    assert "omega.md" in result.stdout
+
+
 def test_cli_model_abstention_lists_no_sources(memory):
     from upii.cli import app
 
