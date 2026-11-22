@@ -183,7 +183,7 @@ graph TD
     end
 ```
 
-Every write path — `ingest`, watch-approve, demo seed — flows through a single deterministic pipeline (`src/upii/ingestion/pipeline.py`):
+Every write path — `ingest`, watch-approve — flows through a single deterministic pipeline (`src/upii/ingestion/pipeline.py`):
 
 - **Identity is content-addressed.** `doc_id = hash(content)`, `chunk_id = hash(chunk_text, config)`. No random UUIDs, no wall-clock, no path dependence. Same input ⇒ same memory state.
 - **Dedup** — re-ingesting unchanged bytes is a no-op.

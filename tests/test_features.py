@@ -52,3 +52,26 @@ def test_persistence(tmp_path):
         data = yaml.safe_load(f)
         assert data["features"]["ambient_memory"] is True
         assert expected in data["features"]["watch_paths"]
+
+
+# --- T-004: demo mode removed ---
+
+from typer.testing import CliRunner
+from upii.cli import app
+import re
+
+
+def test_help_no_demo():
+    runner = CliRunner()
+    r = runner.invoke(app, ["--help"])
+    assert r.exit_code == 0
+    for line in r.output.splitlines():
+        if re.search(r"^\s*│?\s*demo\b", line):
+            pytest.fail(f"'upii --help' lists demo command: {line!r}")
+
+
+def test_demo_investor_exits_nonzero():
+    runner = CliRunner()
+    r = runner.invoke(app, ["demo", "investor"])
+    assert r.exit_code != 0, f"'upii demo investor' should exit non-zero, got {r.exit_code}; output: {r.output[:500]!r}"
+    assert "No such command" in r.output, f"'upii demo investor' should be unknown command; output: {r.output!r}"
