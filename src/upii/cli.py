@@ -77,22 +77,34 @@ def main(debug: bool = typer.Option(False, "--debug", help="Enable debug logging
 @app.command()
 def doctor():
     """Run system health checks."""
-    from upii.analysis.diagnostics import Doctor
-    
+    from upii.analysis.diagnostics import Doctor, remediation
+
     console.print("[bold]Running UPII Doctor...[/bold]")
     doc = Doctor()
     report = doc.check_all()
-    
+
+    fail_count = 0
+
     for check, result in report.items():
         color = "green"
-        if "FAIL" in result:
+        if result.startswith("FAIL"):
             color = "red"
-        elif "WARN" in result:
+            fail_count += 1
+        elif result.startswith("WARN"):
             color = "yellow"
-        elif "READY" in result:
+        elif result.startswith("READY"):
             color = "cyan"
 
         console.print(f"[{color}]{check.ljust(15)}: {result}[/{color}]")
+        hint = remediation(check, result)
+        if hint and result.startswith(("WARN", "FAIL")):
+            console.print(f"  [dim]→ {hint}[/dim]")
+
+    if fail_count > 0:
+        console.print(f"\n[bold red]doctor: FAIL ({fail_count} checks)[/bold red]")
+        raise typer.Exit(1)
+    else:
+        console.print("\n[bold green]doctor: PASS[/bold green]")
 
 
 

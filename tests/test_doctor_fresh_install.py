@@ -7,12 +7,14 @@ and must still FAIL on a genuinely broken store.
 
 import hashlib
 import os
+import subprocess
+import sys
 
 import pytest
 from unittest.mock import patch
 from typer.testing import CliRunner
 
-from upii.analysis.diagnostics import Doctor
+from upii.analysis.diagnostics import Doctor, remediation
 from upii.storage.db import DB
 from upii.storage.vector import LocalVectorStore
 from upii.ingestion.loader import LocalLoader
@@ -70,6 +72,10 @@ def test_fresh_install_reports_ready_and_creates_nothing(paths):
     for name, result in results.items():
         assert result.startswith("READY"), f"{name}: {result}"
         assert "FAIL" not in result, f"{name}: {result}"
+    # embedding may be OK or WARN (depends on whether model is cached), never FAIL.
+    embedding = doc.check_embedding()
+    assert "FAIL" not in embedding, f"embedding: {embedding}"
+
     assert not os.path.exists(db_path)
     assert not os.path.exists(vec_path)
     assert _snapshot(root) == before
@@ -123,3 +129,186 @@ def test_corrupt_db_fails(paths):
 
     assert result.startswith("FAIL")
     assert "unreadable or corrupt" in result
+
+
+# --- embedding check tests ---
+
+def test_embedding_ok_when_cached(paths, monkeypatch):
+    root, db_path, vec_path = paths
+    monkeypatch.delenv("HF_HUB_CACHE", raising=False)
+    monkeypatch.delenv("HF_HOME", raising=False)
+    monkeypatch.delenv("SENTENCE_TRANSFORMERS_HOME", raising=False)
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+
+    cache = root / "hub"
+    snap = cache / "models--sentence-transformers--all-MiniLM-L6-v2" / "snapshots" / "abc123"
+    snap.mkdir(parents=True)
+    (snap / "modules.json").write_text("[]")
+    (snap / "model.safetensors").write_bytes(b"\0")
+
+    monkeypatch.setenv("HF_HUB_CACHE", str(cache))
+    doc = Doctor()
+    assert doc.check_embedding() == "OK"
+
+
+def test_embedding_warn_when_not_cached(monkeypatch):
+    # Use a model name that is definitely not cached on any machine.
+    monkeypatch.setattr(
+        "upii.core.config.config.embedding_model",
+        "nonexistent-model-nowhere-xyz-42",
+    )
+    doc = Doctor()
+    result = doc.check_embedding()
+    assert result.startswith("WARN"), f"Expected WARN, got: {result}"
+    assert "not cached" in result
+
+
+# --- CLI exit-code tests ---
+
+def test_corrupt_db_exits_1_with_hint(paths):
+    root, db_path, vec_path = paths
+    with open(db_path, "wb") as f:
+        f.write(b"this is not a sqlite database" * 200)
+
+    from upii.cli import app
+    result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 1
+    assert "FAIL" in result.output
+    assert "doctor: FAIL" in result.output
+    # Hints appear under WARN/FAIL lines.
+    assert "Move the damaged database file aside" in result.output
+
+
+def test_doctor_cli_passes_on_fresh_install(paths):
+    root, db_path, vec_path = paths
+
+    from upii.cli import app
+    with patch.object(Doctor, "check_model", return_value="OK (mocked)"):
+        # Patch check_embedding to be OK so we get a clean PASS.
+        with patch.object(Doctor, "check_embedding", return_value="OK"):
+            result = CliRunner().invoke(app, ["doctor"])
+
+    assert result.exit_code == 0, result.output
+    assert "doctor: PASS" in result.output
+
+
+# --- remediation hint tests ---
+
+def test_remediation_returns_hint_for_warn_fail():
+    for name, key in [("sqlite", "sqlite"), ("vector_db", "vector_db"),
+                       ("disk", "disk"), ("embedding", "embedding"),
+                       ("ingestion", "ingestion")]:
+        assert remediation(name, f"WARN: test") != ""
+        assert remediation(name, f"FAIL: test") != ""
+
+
+# --- offline import safety tests ---
+
+def test_doctor_imports_no_transformer():
+    """Importing diagnostics must not pull in sentence_transformers / huggingface_hub / torch."""
+    code = (
+        "import sys\n"
+        "import upii.analysis.diagnostics\n"
+        "import upii.cli\n"
+        "_bad = [m for m in sorted(sys.modules.keys()) if\n"
+        "  m == 'sentence_transformers' or m.startswith('sentence_transformers.') or\n"
+        "  m == 'huggingface_hub' or m.startswith('huggingface_hub.') or\n"
+        "  m == 'torch' or m.startswith('torch.')]\n"
+        "print(','.join(_bad))\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True,
+        env={k: v for k, v in os.environ.items()}, timeout=30,
+    )
+    assert out.returncode == 0, out.stderr
+    loaded = [m for m in out.stdout.strip().split(",") if m] if out.stdout.strip() else []
+    assert len(loaded) == 0, f"Heavy modules loaded: {loaded}"
+
+
+def test_model_is_cached_agrees_with_embeddings(tmp_path, monkeypatch):
+    """The private copy in diagnostics must agree with embeddings.model_is_cached,
+    in an isolated cache (never the machine's real Hugging Face cache)."""
+    from upii.analysis.diagnostics import _model_is_cached as local_copy
+    from upii.analysis.embeddings import model_is_cached as canonical
+
+    for var in ("SENTENCE_TRANSFORMERS_HOME", "HF_HOME", "XDG_CACHE_HOME"):
+        monkeypatch.delenv(var, raising=False)
+    hub = tmp_path / "hub"
+    monkeypatch.setenv("HF_HUB_CACHE", str(hub))
+    snap = hub / "models--sentence-transformers--all-MiniLM-L6-v2" / "snapshots" / "abc123"
+    snap.mkdir(parents=True)
+    (snap / "modules.json").write_text("[]")
+
+    def both(name):
+        a, b = local_copy(name), canonical(name)
+        assert a == b, f"{name}: diagnostics={a} embeddings={b}"
+        return a
+
+    assert both("all-MiniLM-L6-v2") is False            # modules.json but no weights
+    (snap / "model.safetensors").write_bytes(b"\0")
+    assert both("all-MiniLM-L6-v2") is True             # cached snapshot
+    assert both(str(tmp_path)) is True                  # a local model folder
+    assert both("someone/missing-model") is False       # not cached anywhere
+
+
+# --- FAILSAFE in a WARN text stays PASS (item 2 review fix) ---
+
+def test_warn_with_FAILSAFE_text_gives_pass():
+    """A check returning 'WARN: ... FAILSAFE ...' must not count as FAIL."""
+    from upii.cli import app
+    with patch.object(Doctor, "check_sqlite", return_value="OK"):
+        with patch.object(Doctor, "check_vector_db", return_value="OK"):
+            with patch.object(Doctor, "check_disk", return_value="OK"):
+                with patch.object(Doctor, "check_model", return_value="WARN: FAILSAFE test"):
+                    with patch.object(Doctor, "check_embedding", return_value="OK"):
+                        with patch.object(Doctor, "check_last_ingestion", return_value="OK"):
+                            result = CliRunner().invoke(app, ["doctor"])
+    assert result.exit_code == 0, result.output
+    assert "doctor: PASS" in result.output
+
+
+# --- model hint per-branch tests (item 3) ---
+
+@patch("upii.analysis.diagnostics.ollama")
+def test_model_hint_ollama_offline(mock_ollama):
+    mock_ollama.list.return_value = {"models": []}
+    doc = Doctor()
+    # Mock LLM path: check_model returns WARN with "offline" or "mock".
+    res = "WARN: Ollama offline (Using Mock LLM)"
+    assert remediation("model", res).startswith("Start Ollama")
+
+
+@patch("upii.analysis.llm.ollama.list", return_value={"models": []})  # LocalLLM sees Ollama up
+@patch("upii.analysis.diagnostics.ollama")
+def test_model_hint_connection_error(mock_ollama, _llm_list):
+    mock_ollama.list.side_effect = ConnectionError("connection refused")
+    doc = Doctor()
+    result = doc.check_model()
+    assert result.startswith("FAIL:")
+    assert "connection error" in result.lower()
+    # The remediation hint for connection error should be the start-Ollama hint.
+    hint = remediation("model", result)
+    assert hint.startswith("Start Ollama")
+
+
+@patch("upii.analysis.diagnostics.ollama")
+def test_model_hint_not_found(mock_ollama):
+    mock_ollama.list.return_value = {"models": []}
+    doc = Doctor()
+    # Simulate the not-found path result (no exception, just WARN).
+    from upii.core.config import config
+    model_name = getattr(config, "llm_model", "llama3.2")
+    result = f"WARN: Model {model_name} not found in Ollama list: []"
+    hint = remediation("model", result)
+    assert f"ollama pull {model_name}" in hint
+
+
+@patch("upii.analysis.diagnostics.ollama")
+def test_model_hint_remote_fail(mock_ollama):
+    mock_ollama.list.return_value = {"models": []}
+    doc = Doctor()
+    # Simulate remote FAIL (no key set).
+    from upii.core.config import config
+    result = "FAIL: GEMINI_API_KEY not set"
+    hint = remediation("model", result)
+    assert "llm_provider" in hint or "GEMINI_API_KEY" in hint
