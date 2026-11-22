@@ -161,6 +161,14 @@ def _ctx(n=2):
     ("I don't know.", True, []),          # no phrase matching: but nothing cited, so no sources
     ("I do not know [1]", True, [1]),     # wording is irrelevant; the citation is what counts
     ("Out of range [7] [0]", True, []),
+    # uppercase NOT FOUND / NOT-FOUND variants (T-001)
+    ("The information is not in the provided context. NOT FOUND", False, []),
+    ("NOT-FOUND", False, []),
+    ("404 NOT FOUND [1]", True, [1]),
+    ("file not found [1]", True, [1]),    # lowercase never abstains
+    # word-boundary guards (T-001): no false positives on embedded words
+    ("THE NOT FOUNDATION REPORT", True, []),
+    ("CANNOT FOUND", True, []),
 ])
 def test_answer_flag_is_structured(raw, found, cited):
     with patch("upii.analysis.llm.ollama.list", return_value={"models": []}), \
@@ -177,3 +185,26 @@ def test_answer_without_context_never_calls_model():
         ans = LocalLLM(provider="local").answer("q", [])
     generate.assert_not_called()
     assert (ans.found, ans.cited, ans.text) == (False, [], NOT_FOUND_MESSAGE)
+
+
+# -- MCP service variant abstention ---------------------------------------------------
+def test_api_variant_abstention():
+    """A variant abstention ("NOT FOUND" without citations) is reported as found=false
+    with no sources through the HTTP /ask endpoint.
+
+    This tests the full chain: LLM -> answer() parsing -> HTTP response.
+    """
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from upii.api.server import create_app
+
+    with patch("upii.analysis.llm.ollama.list", return_value={"models": []}), \
+         patch("upii.analysis.llm.ollama.generate",
+               return_value={"response": "The information is not in the provided context. NOT FOUND"}):
+        client = TestClient(create_app(), base_url="http://127.0.0.1")
+        resp = client.post("/ask", json={"question": RELATED}).json()
+
+    assert resp["found"] is False
+    assert resp["sources"] == []
+    assert resp["answer"] == NOT_FOUND_MESSAGE
