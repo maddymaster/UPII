@@ -32,6 +32,12 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   way on Windows CI; it now also stops the watcher in a `finally`, so a failed assert no longer
   leaves the test process hanging until the 6 h job timeout. No change to `src/`.
 
+### Removed
+
+- The `upii demo` command (`investor`, `customer`, and `seed` modes). These printed scripted
+  sales pitches or injected fake entities instead of going through the ingestion pipeline.
+  They must never be used as evidence. (T-004)
+
 ## [0.9.1] - 2026-10-29
 
 ### Changed
