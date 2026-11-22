@@ -5,6 +5,15 @@ from upii.ambient.watcher import PollingWatcher
 from upii.core.features import features
 from upii.ambient.storage import StagingDB
 
+
+def wait_for(cond, timeout=10.0, interval=0.05):
+    deadline = time.monotonic() + timeout
+    while True:
+        value = cond()
+        if value or time.monotonic() >= deadline:
+            return value
+        time.sleep(interval)
+
 @pytest.fixture
 def ambient_env(tmp_path):
     # Setup test env
@@ -37,19 +46,18 @@ def test_watcher_lifecycle(ambient_env):
     
     watcher = PollingWatcher(interval=0.1)
     watcher.start()
-    
-    # Create file
-    test_file = watch_dir / "note.md"
-    test_file.write_text("Hello Ambient")
-    
-    # Wait for scan
-    time.sleep(0.5)
-    
-    # Check DB
-    db = StagingDB()
-    events = db.get_pending_events()
-    assert len(events) >= 1
-    assert events[0]['event_type'] == 'created'
-    assert events[0]['file_path'] == str(test_file)
-    
-    watcher.stop()
+    try:
+        # Create file
+        test_file = watch_dir / "note.md"
+        test_file.write_text("Hello Ambient")
+
+        # Poll for the capture instead of a fixed wait (slow CI runners, T-012)
+        db = StagingDB()
+        events = wait_for(db.get_pending_events)
+        assert len(events) >= 1
+        assert events[0]['event_type'] == 'created'
+        assert events[0]['file_path'] == str(test_file)
+    finally:
+        # Always stop, so a failed assert cannot leave the watcher running
+        # and hang the test process (Windows CI hit the 6 h job timeout).
+        watcher.stop()
