@@ -2,6 +2,7 @@ import typer
 import uuid
 import logging
 import os
+import sys
 from typing import Optional
 from rich.console import Console
 from rich.panel import Panel
@@ -110,6 +111,27 @@ def doctor():
 
 
 
+OVERLAY_MODULES = {"webview": "pywebview", "pynput": "pynput"}
+
+
+@app.command()
+def overlay():
+    """Open the desktop overlay: ask your memory from any app (needs: pip install "upii\\[overlay]")."""
+    import importlib.util
+
+    missing = [pkg for mod, pkg in OVERLAY_MODULES.items() if importlib.util.find_spec(mod) is None]
+    if missing:
+        console.print(f"[red]The overlay needs the optional extra (missing: {', '.join(missing)}):[/red] "
+                      'pip install "upii\\[overlay]"   (from source: pip install -e ".\\[overlay]")')
+        raise typer.Exit(code=1)
+    console.print(f"Memory folder: {os.getcwd()}")
+    if sys.platform == "darwin":
+        console.print("[dim]macOS: the Cmd+Shift+K hotkey needs this terminal app allowed in System Settings "
+                      "> Privacy & Security > Accessibility.[/dim]")
+    from upii.overlay.daemon import run_overlay
+    run_overlay()
+
+
 @app.command()
 def serve(
     host: str = typer.Option("127.0.0.1", "--host", help="Interface to bind (default: localhost only)"),
@@ -119,12 +141,12 @@ def serve(
         help="Memory folder (upii.db, vectors, staging.db, .upii_config.yaml). Default: current folder",
     ),
 ):
-    """Run the local HTTP API (needs: pip install "upii[api]")."""
+    """Run the local HTTP API (needs: pip install "upii\\[api]")."""
     try:
         import uvicorn
         from upii.api.server import LOOPBACK_HOSTS, create_app, use_data_dir
     except ImportError:
-        console.print('[red]The HTTP API needs the optional extra:[/red] pip install "upii[api]"')
+        console.print('[red]The HTTP API needs the optional extra:[/red] pip install "upii\\[api]"')
         raise typer.Exit(code=1)
 
     root = use_data_dir(data_dir or os.getcwd())

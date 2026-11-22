@@ -100,6 +100,20 @@ answer cites them. `python eval/run_abstention_eval.py` re-checks the threshold.
 it: `upii ask` and `upii write` print `Answered by: …`, and the MCP server, overlay and HTTP API
 return a `model` field. `upii doctor` reports the configured provider.
 
+### Desktop overlay
+
+A small always-on-top window for asking your memory from any app. It uses the memory in the
+folder you start it from. Optional extra:
+
+```bash
+pip install "upii[overlay]"      # from source: pip install -e ".[overlay]"
+cd <your memory folder>
+upii overlay                      # Cmd+Shift+K shows or hides it
+```
+
+On macOS the global hotkey needs your terminal app allowed in System Settings > Privacy &
+Security > Accessibility. Answers list only the sources they cite.
+
 ### HTTP API
 
 A small local API so a web app can use UPII without the command line. It runs the same
