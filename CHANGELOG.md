@@ -16,6 +16,9 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Added
 
+- `scripts/bench/ask_startup.py` (T-050): times `upii ask` as a new process and, in one
+  process, each step (imports, embedding model load, search, answer), plus questions asked in a
+  process that stays running. Run it from the memory folder. It only measures.
 - `upii overlay` starts the desktop overlay (T-047). The `overlay` extra now declares
   `pywebview` (on macOS it brings in pyobjc) next to `pynput`, so `pip install "upii[overlay]"`
   is enough. Without the extra, the command says which package is missing and how to install it.
