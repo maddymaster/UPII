@@ -38,6 +38,8 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   package root logger set to WARNING in ``Embedder.get_instance()`` suppress both "Loading weights"
   and "Batches" output. No bars by design (even without ``--debug``).
 
+- `demo_dataset/notes.md` replaced with a realistic sprint note; the placeholder text "Passive thought" no longer gets ingested (T-051).
+
 - The overlay lists only the sources the answer cites, each with its file path and a
   one-line excerpt, and none when the model abstains (T-046). It used to list every
   retrieved passage with only its ranking signal (for example `semantic:1.00+temporal:0.25`),
