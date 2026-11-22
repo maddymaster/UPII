@@ -22,8 +22,6 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   On macOS it also explains the Accessibility permission the Cmd+Shift+K hotkey needs. The
   README documents it.
 
-### Added
-
 - `upii doctor` now includes an **embedding** check (READY when the model is not yet
   loaded, OK when cached on disk, WARN when the embedding model file is missing — the
   first ingest will download it). Never downloads or imports sentence-transformers.
@@ -43,6 +41,10 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 - Flaky `tests/test_watcher_advanced.py::test_debounce_and_staging` on Windows CI (T-052): it
   polled for the staged event but then read the audit log at once, and the watcher writes
   the audit row just after the event row. It now polls for the audit row too. Test-only.
+- `upii ask` lists each cited source as its file path (relative to the current folder, or
+  with `~` for home) plus a one-line excerpt of the passage, instead of a document hash
+  (T-045). `--no-answer` shows paths too. The lookup is read-only and falls back to the
+  hash for passages with no stored document.
 
 - Uppercase "NOT FOUND" / "NOT-FOUND" variants now correctly abstain when the answer
   cites no source (T-001). The exact ``NOT_FOUND`` token always abstains (unchanged).
