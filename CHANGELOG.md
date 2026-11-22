@@ -36,6 +36,18 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Fixed
 
+- Overlay window behaviour (T-048). Escape now hides the window (its handler was a no-op) and
+  Cmd+Shift+K shows it again; both share one shown/hidden state. The web inspector is off
+  unless you run `upii overlay --debug`. The page's API object exposes only the two methods
+  the page calls (`query`, `hide_window`), not the engine objects behind them, which also
+  removes the `Error while processing rehydrator.vector_store.db.session` line at launch.
+  Sources show a short path (relative to the memory folder, else `folder/file`) on their own
+  line with the excerpt below, the excerpt drops Markdown marks, and the window is near-opaque
+  with larger text so it reads on a projector.
+  After each hide or show the overlay checks the real window and prints a warning if it did
+  not follow; `--debug` also prints a line per Escape or hotkey. `tests/test_overlay_gui.py`
+  opens a real window on macOS (only with `UPII_GUI_TESTS=1`) and checks that the hotkey and
+  Escape really hide and show it.
 - `upii ask` / `search` no longer print tqdm progress bars (model loading or batching).
   ``transformers.utils.logging.disable_progress_bar()`` and the ``sentence_transformers``
   package root logger set to WARNING in ``Embedder.get_instance()`` suppress both "Loading weights"

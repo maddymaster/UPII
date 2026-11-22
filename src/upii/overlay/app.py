@@ -1,8 +1,9 @@
 
 import logging
-import json
+import os
+import re
 import threading
-from typing import Optional
+from typing import Callable, Optional
 
 try:
     import webview
@@ -15,6 +16,8 @@ from upii.core.config import config
 from upii.core.types import RankedChunk
 
 logger = logging.getLogger("upii.overlay")
+
+CHECK_DELAY = 0.6  # seconds between asking pywebview to hide/show and checking the window
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -40,11 +43,11 @@ HTML_TEMPLATE = """
         #app-container {
             margin-top: 15vh;
             width: 700px;
-            background: rgba(30, 30, 30, 0.85);
+            background: rgba(22, 22, 24, 0.97);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             display: flex;
             flex-direction: column;
@@ -84,27 +87,38 @@ HTML_TEMPLATE = """
         }
 
         .answer-block {
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             line-height: 1.6;
-            font-size: 16px;
+            font-size: 18px;
+            color: #f5f5f5;
+        }
+
+        .answered-by {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.75);
         }
         
         .sources-list {
-            margin-top: 15px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
+            margin-top: 16px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.85);
         }
-        
+
         .source-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
         }
-        
-        .tag-vector { color: #64b5f6; }
-        .tag-calendar { color: #ffb74d; }
-        .tag-entity { color: #81c784; }
+
+        .source-path {
+            color: #ffffff;
+        }
+
+        .source-excerpt {
+            margin-top: 2px;
+            font-size: 13px;
+            line-height: 1.45;
+            color: rgba(255, 255, 255, 0.75);
+        }
 
     </style>
 </head>
@@ -154,6 +168,10 @@ HTML_TEMPLATE = """
             return d.innerHTML;
         }
 
+        function escAttr(s) {
+            return esc(s).replace(/"/g, '&quot;');
+        }
+
         function renderResponse(data) {
             if (data.error) {
                 results.innerHTML = `<div style="color:red">${esc(data.error)}</div>`;
@@ -162,7 +180,7 @@ HTML_TEMPLATE = """
 
             let html = `<div class="answer-block">${esc(data.answer).replace(/\\n/g, '<br>')}</div>`;
             if (data.model) {
-                html += `<div style="opacity:0.6;font-size:12px">Answered by: ${esc(data.model.name)} (${esc(data.model.provider)}, ${esc(data.model.location)})</div>`;
+                html += `<div class="answered-by">Answered by: ${esc(data.model.name)} (${esc(data.model.provider)}, ${esc(data.model.location)})</div>`;
             }
 
             // Only the sources the answer cites; none for a not-found answer.
@@ -171,8 +189,8 @@ HTML_TEMPLATE = """
                 data.sources.forEach(s => {
                     html += `
                         <div class="source-item">
-                            <span>[${esc(s.n)}] ${esc(s.path)}</span>
-                            <div style="opacity:0.7;font-size:12px">${esc(s.excerpt)}</div>
+                            <div class="source-path" title="${escAttr(s.full_path)}">[${esc(s.n)}] ${esc(s.path)}</div>
+                            <div class="source-excerpt">${esc(s.excerpt)}</div>
                         </div>
                     `;
                 });
@@ -185,43 +203,95 @@ HTML_TEMPLATE = """
 </html>
 """
 
+_MD_LINE_START = re.compile(r"^\s{0,3}(?:#{1,6}\s+|>\s?|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)")
+_MD_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
+_MD_EMPHASIS = re.compile(r"\*\*|__|`|~~")
+_MD_STAR = re.compile(r"(?<![\w*])\*(\S[^*]*?)\*(?![\w*])")
+
+
+def _plain(text: Optional[str]) -> str:
+    """The passage without Markdown marks: headings, bullets, checkboxes, quotes,
+    links (their text stays), bold, italics with *, code ticks and strike-through.
+    Headings, list items and paragraphs are joined with " · " so they stay apart."""
+    parts = []  # (text, is_break): headings, bullets and blank lines start a new part
+    for line in (text or "").splitlines():
+        stripped = _MD_LINE_START.sub("", line)
+        parts.append((stripped.strip(), stripped != line or not line.strip()))
+    flat, prev_break = "", True
+    for piece, is_break in parts:
+        if not piece:
+            prev_break = True
+            continue
+        sep = "" if not flat else (" · " if (is_break or prev_break) else " ")
+        flat += sep + piece
+        prev_break = is_break
+    flat = _MD_LINK.sub(r"\1", flat)
+    flat = _MD_EMPHASIS.sub("", flat)
+    return _MD_STAR.sub(r"\1", flat)
+
+
 def _excerpt(text: Optional[str], width: int = 240) -> str:
-    """One line of the passage, whitespace collapsed, cut at ``width`` characters."""
-    flat = " ".join((text or "").split())
+    """One line of the passage as plain text, whitespace collapsed, cut at ``width`` characters."""
+    flat = " ".join(_plain(text).split())
     return flat if len(flat) <= width else flat[: width - 1].rstrip() + "…"
 
 
+def _short_path(path: str) -> str:
+    """A path short enough to read on screen: relative to the current (memory) folder when
+    inside it, else the file and its folder (``demo_dataset/team_sync.md``). A value that
+    is not an absolute path (a document hash) is returned unchanged."""
+    if not path or not os.path.isabs(path):
+        return path
+    try:
+        rel = os.path.relpath(path)
+        if not rel.startswith(".."):
+            return rel
+    except ValueError:  # another drive on Windows
+        pass
+    folder = os.path.basename(os.path.dirname(path))
+    return os.path.join(folder, os.path.basename(path)) if folder else os.path.basename(path)
+
+
 class OverlayAPI:
-    """Exposed to JS."""
-    def __init__(self):
-        self.rehydrator = ContextRehydrator()
-        self.llm = LocalLLM()
-    
+    """The object pywebview exposes to the page as ``pywebview.api``.
+
+    pywebview walks every public attribute of this object (recursively) and exposes each
+    method to the page, so the only public names here are the two methods the page calls:
+    ``query`` and ``hide_window``. Everything else (the engine, the model client, the
+    window callback) is private, so the page cannot reach engine internals and pywebview
+    does not try to walk them at launch.
+    """
+    def __init__(self, on_hide: Optional[Callable[[], None]] = None):
+        self._rehydrator = ContextRehydrator()
+        self._llm = LocalLLM()
+        self._on_hide = on_hide
+
     def query(self, text: str) -> dict:
         """Handle query from frontend.
 
-        ``sources`` lists only the passages the answer cites (number, document path,
-        one-line excerpt), and none when the model abstains, matching `upii ask` and MCP.
-        ``ranking`` keeps the per-signal ranking of every retrieved passage for debugging;
-        the overlay does not display it.
+        ``sources`` lists only the passages the answer cites (number, short path, full
+        path, one-line plain-text excerpt), and none when the model abstains, matching
+        `upii ask` and MCP. ``ranking`` keeps the per-signal ranking of every retrieved
+        passage for debugging; the overlay does not display it.
         """
         try:
             # 1. Rehydrate
-            ranked_chunks = self.rehydrator.rehydrate(text, limit=5,
-                                                      min_similarity=config.rag_min_similarity)
+            ranked_chunks = self._rehydrator.rehydrate(text, limit=5,
+                                                       min_similarity=config.rag_min_similarity)
             if not ranked_chunks:
                 return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None,
                         "sources": [], "ranking": []}
 
             # 2. Generate
-            answer = self.llm.answer(text, ranked_chunks)
+            answer = self._llm.answer(text, ranked_chunks)
 
             # 3. Cited sources only
             sources = []
             if answer.found:
                 for n in answer.cited:
                     c = ranked_chunks[n - 1]
-                    sources.append({"n": n, "path": self._doc_path(c.doc_hash),
+                    full = _doc_path(c.doc_hash)
+                    sources.append({"n": n, "path": _short_path(full), "full_path": full,
                                     "excerpt": _excerpt(c.text)})
 
             # 4. Per-signal ranking (debug only, not displayed)
@@ -236,7 +306,7 @@ class OverlayAPI:
             return {
                 "answer": answer.text,
                 "found": answer.found,
-                "model": self.llm.model_info(),
+                "model": self._llm.model_info(),
                 "sources": sources,
                 "ranking": ranking_info
             }
@@ -244,38 +314,82 @@ class OverlayAPI:
             logger.error(f"Overlay Query Error: {e}")
             return {"error": str(e)}
 
-    def _doc_path(self, doc_hash: str) -> str:
-        """The document's path as stored at ingest; the hash if it has none (synthetic)."""
-        try:
-            from upii.storage.db import DB
-            doc = DB().get_document_by_id(doc_hash)
-        except Exception:
-            doc = None
-        return (doc or {}).get("source_path") or doc_hash
-
     def hide_window(self):
-        """Allow JS to close/hide window."""
-        # This relies on the main thread loop to handle actual window ops usually
-        # But we can try calling exit or hide if supported
-        # For pynput daemon integration, we usually just minimize
-        pass
+        """Called by the page on Escape: hide the window (Cmd+Shift+K shows it again)."""
+        if self._on_hide is not None:
+            self._on_hide()
+
+
+def _doc_path(doc_hash: str) -> str:
+    """The document's path as stored at ingest; the hash if it has none (synthetic)."""
+    try:
+        from upii.storage.db import DB
+        doc = DB().get_document_by_id(doc_hash)
+    except Exception:
+        doc = None
+    return (doc or {}).get("source_path") or doc_hash
+
 
 class OverlayApp:
-    def __init__(self):
-        self.api = OverlayAPI()
+    """The overlay window. It owns the shown/hidden state, so Escape (from the page) and
+    the Cmd+Shift+K hotkey (from the daemon thread) always agree on it."""
+
+    def __init__(self, debug: bool = False):
+        self.debug = debug  # web inspector; off unless `upii overlay --debug`
+        self.api = OverlayAPI(on_hide=lambda: self.hide("escape"))
         self.window = None
+        self.visible = True  # pywebview shows the window when it starts
+
+    def hide(self, source: str = "escape"):
+        if self.window is not None and self.visible:
+            self.window.hide()
+            self.visible = False
+            self._check(source, "hide", expect=False)
+
+    def show(self, source: str = "hotkey"):
+        if self.window is not None and not self.visible:
+            self.window.show()
+            self.window.restore()  # in case it was minimised
+            self.visible = True
+            self._check(source, "show", expect=True)
+
+    def toggle(self, source: str = "hotkey"):
+        if self.visible:
+            self.hide(source)
+        else:
+            self.show(source)
+
+    def native_visible(self) -> Optional[bool]:
+        """Whether the OS window is really on screen (macOS: NSWindow.isVisible), or
+        None when the backend does not tell us."""
+        try:
+            native = self.window.native
+            return bool(native.isVisible()) if hasattr(native, "isVisible") else None
+        except Exception:
+            return None
+
+    def _check(self, source: str, action: str, expect: bool, delay: float = CHECK_DELAY):
+        """pywebview runs hide/show later on the GUI thread. Shortly after, compare the
+        real window with what we asked for: print a warning if they differ (always), and
+        a trace line with --debug. This makes a toggle that silently does nothing visible."""
+        def run():
+            actual = self.native_visible()
+            if self.debug:
+                print(f"overlay: {source} -> {action}; window visible = {actual}", flush=True)
+            if actual is not None and actual != expect:
+                print(f"overlay: warning: {source} asked to {action} the window, but it is "
+                      f"{'still' if actual else 'not'} visible", flush=True)
+        t = threading.Timer(delay, run)
+        t.daemon = True
+        t.start()
 
     def launch(self):
         if not webview:
             print("Error: pywebview not installed. Run 'pip install pywebview'")
             return
 
-        # Create invisible window initially? pywebview typically shows immediately.
-        # We start it, then the daemon monitors hotkeys to show/hide.
-        # For "Instant" feel, we want it running.
-        
         self.window = webview.create_window(
-            'UPII', 
+            'UPII',
             html=HTML_TEMPLATE,
             js_api=self.api,
             width=800,
@@ -284,4 +398,4 @@ class OverlayApp:
             transparent=True,
             on_top=True
         )
-        webview.start(debug=True)
+        webview.start(debug=self.debug)
