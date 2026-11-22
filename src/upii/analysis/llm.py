@@ -159,6 +159,10 @@ Answer:"""
         token (not any particular wording) sets ``found=False``. ``cited`` holds the
         1-based source numbers the answer actually references, so callers list only
         those — never citations for an answer that has none.
+
+        Uppercase variants ("NOT FOUND", "NOT-FOUND") are also treated as abstentions
+        when the answer cites no source. A cited variant (e.g. "404 NOT FOUND [1]")
+        survives because the citation proves it is quoting a document, not declining.
         """
         if not chunks:
             return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
@@ -166,6 +170,9 @@ Answer:"""
         if _NOT_FOUND_RE.search(raw):
             return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
         cited = sorted({int(n) for n in _CITATION_RE.findall(raw) if 1 <= int(n) <= len(chunks)})
+        # Uppercase NOT FOUND / NOT-FOUND without citations -> abstain.
+        if not cited and re.search(r'NOT\s+FOUND|NOT[-_]FOUND', raw):
+            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
         return Answer(text=raw, found=True, cited=cited)
 
     def answer_with_citations(self, question: str, chunks: List[Chunk]) -> str:
