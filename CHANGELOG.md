@@ -32,6 +32,9 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   retrieved passage with only its ranking signal (for example `semantic:1.00+temporal:0.25`),
   including for not-found answers, unlike `upii ask` and MCP. The overlay page now also
   escapes answers and passages instead of inserting them as raw HTML.
+- Flaky `tests/test_watcher_advanced.py::test_debounce_and_staging` on Windows CI (T-052): it
+  polled for the staged event but then read the audit log at once, and the watcher writes
+  the audit row just after the event row. It now polls for the audit row too. Test-only.
 
 - Uppercase "NOT FOUND" / "NOT-FOUND" variants now correctly abstain when the answer
   cites no source (T-001). The exact ``NOT_FOUND`` token always abstains (unchanged).

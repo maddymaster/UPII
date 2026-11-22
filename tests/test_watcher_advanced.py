@@ -80,8 +80,9 @@ def test_debounce_and_staging(watcher_env):
     # We need to query staging_docs directly via SQL or add helper method in DB
     # Let's inspect DB raw or rely on implementation correctness if event is staged?
     # The source code calls add_staging_doc. Let's verify it logged 'capture' in audit.
-    logs = db.get_audit_logs()
-    assert logs[0]['action'] == 'capture'
+    # The audit row is written just after the event row, so poll for it too.
+    logs = wait_for(db.get_audit_logs) or []
+    assert logs and logs[0]['action'] == 'capture'
     assert 'Draft 1' in str(logs) or 'created' in str(logs)
 
 def test_delete_handling(watcher_env):
