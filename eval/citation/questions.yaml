@@ -1,0 +1,290 @@
+version: 1
+corpus: eval/dataset/corpus
+corpus_commit: 4d858b89ee7fe1fce01beeece5cb965574b480d5
+questions:
+  - id: c001
+    question: "Which database holds per-chunk bookkeeping such as file locations and content fingerprints?"
+    answerable: true
+    gold:
+      - document: architecture.md
+        passage: "Document and chunk metadata (paths, hashes, offsets) live in a SQLite database alongside it."
+  - id: c002
+    question: "What happens to the stored state if the same set of documents is ingested twice?"
+    answerable: true
+    gold:
+      - document: architecture.md
+        passage: "Everything is content-addressed so re-ingesting the same corpus converges to an identical on-disk state."
+  - id: c003
+    question: "How long does regenerating embeddings for the entire corpus take on a laptop?"
+    answerable: true
+    gold:
+      - document: capacity_planning.md
+        passage: "Re-embedding the whole corpus takes about 6 minutes on a laptop."
+  - id: c004
+    question: "Would a 200k-chunk index fit inside the memory budget set by the retrieval SLO?"
+    answerable: true
+    gold:
+      - document: capacity_planning.md
+        passage: "For a heavy user with 200k chunks we project ~200MB resident, comfortably under the 500MB cap."
+      - document: performance_slo.md
+        passage: "Memory budget for the resident index is capped at 500MB."
+  - id: c005
+    question: "What makes up most of the current cloud bill, and roughly how much is it?"
+    answerable: true
+    gold:
+      - document: cloud_costs.md
+        passage: "CI runners are the bulk of spend at roughly $900/month."
+  - id: c006
+    question: "Why don't we pay anything for model inference?"
+    answerable: true
+    gold:
+      - document: cloud_costs.md
+        passage: "There is no inference cost because all models run locally on the user's device."
+  - id: c007
+    question: "How much room is there between current CI spending and the monthly cloud limit?"
+    answerable: true
+    gold:
+      - document: cloud_costs.md
+        passage: "CI runners are the bulk of spend at roughly $900/month."
+      - document: financials.md
+        passage: "our monthly cloud spend is capped at $1,500; anything above that needs sign-off."
+  - id: c008
+    question: "How much did we spend on cloud services last quarter?"
+    answerable: false
+    gold: []
+  - id: c009
+    question: "Do rival products offer a fused retriever that runs on the device?"
+    answerable: true
+    gold:
+      - document: competitor_scan.md
+        passage: "None ship an on-device fused retriever."
+  - id: c010
+    question: "Which competitor has the largest user base?"
+    answerable: false
+    gold: []
+  - id: c011
+    question: "Which capabilities are gated behind configuration flags, and in which file?"
+    answerable: true
+    gold:
+      - document: feature_flags.md
+        passage: "Ambient watcher and inbox approval are behind flags in features.yaml."
+  - id: c012
+    question: "Is the fused ranker enabled without changing any settings?"
+    answerable: true
+    gold:
+      - document: feature_flags.md
+        passage: "The fused ranker is on by default."
+  - id: c013
+    question: "Why can the calendar and entity signals be switched on and off separately?"
+    answerable: true
+    gold:
+      - document: feature_flags.md
+        passage: "Calendar and entity signals can be toggled independently for A/B evaluation."
+  - id: c014
+    question: "What expenses does the offsite money pay for?"
+    answerable: true
+    gold:
+      - document: financials.md
+        passage: "The team offsite has an approved budget of $20k, covering travel, lodging and two days of venue rental."
+  - id: c015
+    question: "What is needed if monthly cloud costs go past their limit?"
+    answerable: true
+    gold:
+      - document: financials.md
+        passage: "our monthly cloud spend is capped at $1,500; anything above that needs sign-off."
+  - id: c016
+    question: "What does each new team laptop cost, and when will they be bought?"
+    answerable: true
+    gold:
+      - document: procurement.md
+        passage: "New laptops for the team are quoted at $2,400 each. Purchase is deferred to Q4 per the budget notes."
+  - id: c017
+    question: "On what dates is the team offsite taking place?"
+    answerable: false
+    gold: []
+  - id: c018
+    question: "Which position are the two finalists interviewing for?"
+    answerable: true
+    gold:
+      - document: hiring_pipeline.md
+        passage: "Two candidates in the final round for the ML engineer role."
+  - id: c019
+    question: "On which day is the candidate debrief?"
+    answerable: true
+    gold:
+      - document: hiring_pipeline.md
+        passage: "Both strong on retrieval systems. Debrief scheduled Thursday."
+  - id: c020
+    question: "What salary range is offered for the ML engineer opening?"
+    answerable: false
+    gold: []
+  - id: c021
+    question: "Besides latency, what is recorded about each query result?"
+    answerable: true
+    gold:
+      - document: observability_notes.md
+        passage: "We log per-query latency and the source signal (vector / calendar / entity) that produced each result."
+  - id: c022
+    question: "Are the daily usage metrics sent to any outside service?"
+    answerable: true
+    gold:
+      - document: observability_notes.md
+        passage: "Daily metrics roll up query counts and ingest counts into a local SQLite table; nothing is exported."
+  - id: c023
+    question: "What gap did Priya point out in how we measure retrieval?"
+    answerable: true
+    gold:
+      - document: one_on_one_priya.md
+        passage: "She flagged that we lack a labelled dataset to measure recall against."
+  - id: c024
+    question: "Which piece of work is Priya being paired with?"
+    answerable: true
+    gold:
+      - document: one_on_one_priya.md
+        passage: "Action: pair her with the rehydrator work."
+  - id: c025
+    question: "What p95 latency must the work Priya is being paired with hit before release?"
+    answerable: true
+    gold:
+      - document: one_on_one_priya.md
+        passage: "Action: pair her with the rehydrator work."
+      - document: performance_slo.md
+        passage: "Our service-level objective for context retrieval is a p95 latency of 100ms for a top-10 query on a warm index."
+  - id: c026
+    question: "How much delay is acceptable on the opening search after startup, and what explains that allowance?"
+    answerable: true
+    gold:
+      - document: performance_slo.md
+        passage: "Cold-start (first query after launch) is allowed up to 800ms while the embedding model loads."
+  - id: c027
+    question: "What is the p99 latency target for retrieval?"
+    answerable: false
+    gold: []
+  - id: c028
+    question: "Which API key is due for renewal?"
+    answerable: true
+    gold:
+      - document: personal_todos.md
+        passage: "renew the Gemini API key"
+  - id: c029
+    question: "What was behind the watcher's runaway memory use when processing lots of files?"
+    answerable: true
+    gold:
+      - document: team_sync.md
+        passage: "it was an unbounded event queue that grew during large ingests."
+  - id: c030
+    question: "What will the new hire be taken through by their onboarding buddy?"
+    answerable: true
+    gold:
+      - document: team_sync.md
+        passage: "he'll walk them through the ingestion pipeline and the local-first data model."
+  - id: c031
+    question: "What is the name of the new hire starting next week?"
+    answerable: false
+    gold: []
+  - id: c032
+    question: "What did the duplicate embeddings do to the index and to search results?"
+    answerable: true
+    gold:
+      - document: postmortem_ingest.md
+        passage: "This inflated the index and skewed similarity scores."
+  - id: c033
+    question: "How was the duplicate-vector fix confirmed to work?"
+    answerable: true
+    gold:
+      - document: postmortem_ingest.md
+        passage: "Verified with a reproducibility test."
+  - id: c034
+    question: "On what date was the duplicate-vector bug first reported?"
+    answerable: false
+    gold: []
+  - id: c035
+    question: "What has to happen before an ambient capture is saved permanently?"
+    answerable: true
+    gold:
+      - document: privacy.md
+        passage: "every ambient capture is shown for approval before anything is written to long-term memory."
+  - id: c036
+    question: "Are passive ingestion sources switched on automatically?"
+    answerable: true
+    gold:
+      - document: privacy.md
+        passage: "Passive ingestion sources are opt-in"
+  - id: c037
+    question: "Which budget pays for monitors and desks?"
+    answerable: true
+    gold:
+      - document: procurement.md
+        passage: "Monitors and desks are covered by the office facilities line, not the team budget."
+  - id: c038
+    question: "What is the overlay UI team focusing on this sprint?"
+    answerable: true
+    gold:
+      - document: project_atlas.md
+        passage: "Focus this sprint is reducing render jank and adding a keyboard shortcut to summon the panel."
+  - id: c039
+    question: "Who owns the desktop overlay project?"
+    answerable: true
+    gold:
+      - document: project_atlas.md
+        passage: "adding a keyboard shortcut to summon the panel. Owner: design guild."
+  - id: c040
+    question: "Has any code been written for the cross-device sync project?"
+    answerable: true
+    gold:
+      - document: project_borealis.md
+        passage: "Still in design; no code yet."
+  - id: c041
+    question: "Do encryption keys ever leave the user's devices in the sync design?"
+    answerable: true
+    gold:
+      - document: project_borealis.md
+        passage: "It is explicitly not cloud storage; keys never leave the devices."
+  - id: c042
+    question: "Which encryption algorithm will the device sync use?"
+    answerable: false
+    gold: []
+  - id: c043
+    question: "What is the tentative monthly price for a single user on the paid tier?"
+    answerable: true
+    gold:
+      - document: project_nimbus.md
+        passage: "Placeholder pricing: $12/month individual, team pricing TBD."
+  - id: c044
+    question: "Why were e5-large and bge-large rejected for embeddings?"
+    answerable: true
+    gold:
+      - document: project_omega.md
+        passage: "Larger models (e5-large, bge-large) scored marginally higher on recall but were 4-6x slower and too big to ship locally."
+  - id: c045
+    question: "How many dimensions do the chosen model's vectors have?"
+    answerable: true
+    gold:
+      - document: project_omega.md
+        passage: "still producing 384-dimensional vectors with strong retrieval quality"
+  - id: c046
+    question: "What recall score did e5-large get in the embedding comparison?"
+    answerable: false
+    gold: []
+  - id: c047
+    question: "Which rank fusion technique is on the papers-to-read list?"
+    answerable: true
+    gold:
+      - document: reading_list.md
+        passage: "Papers to read: ColBERT late interaction, RRF for rank fusion"
+  - id: c048
+    question: "Which signals is Rehydrator v2 meant to combine into one ranking?"
+    answerable: true
+    gold:
+      - document: roadmap_q3.md
+        passage: "fusing semantic vector search with temporal (calendar) and relational (entity graph) signals into a single ranked result."
+  - id: c049
+    question: "What is the minimum macOS version the desktop app will support?"
+    answerable: false
+    gold: []
+  - id: c050
+    question: "What must the demo show?"
+    answerable: true
+    gold:
+      - document: standup_notes.md
+        passage: "Reminder that the demo needs a live `upii ask` with visible fused ranking."
