@@ -57,8 +57,8 @@ def _print_fusion_debug(results, weights: Optional[dict]) -> None:
         for s in SIGNALS:
             sig = r.signals.get(s, 0.0)
             contrib = r.contributions.get(s, 0.0)
-            # "signal→contribution": raw normalised score and its weighted share.
-            cells.append(f"{sig:.2f}→{contrib:.2f}" if sig else "·")
+            # "signal->contribution": raw normalised score and its weighted share.
+            cells.append(f"{sig:.2f}->{contrib:.2f}" if sig else "·")
         cells.append(r.source_signal)
         cells.append(" ".join((r.text or "").split())[:50])
         table.add_row(*cells)
@@ -99,7 +99,7 @@ def doctor():
         console.print(f"[{color}]{check.ljust(15)}: {result}[/{color}]")
         hint = remediation(check, result)
         if hint and result.startswith(("WARN", "FAIL")):
-            console.print(f"  [dim]→ {hint}[/dim]")
+            console.print(f"  [dim]-> {hint}[/dim]")
 
     if fail_count > 0:
         console.print(f"\n[bold red]doctor: FAIL ({fail_count} checks)[/bold red]")

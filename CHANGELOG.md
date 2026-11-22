@@ -60,6 +60,11 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   way on Windows CI; it now also stops the watcher in a `finally`, so a failed assert no longer
   leaves the test process hanging until the 6 h job timeout. No change to `src/`.
 
+- `upii doctor` crashed on the Windows console with `UnicodeEncodeError` whenever a check
+  printed a fix hint: the hint lines started with "→", which the legacy console (cp1252) cannot
+  encode (T-054; found by the new release-build smoke test). The `ask --debug` table had the
+  same character. Both now use "->".
+
 ### Removed
 
 - The `upii demo` command (`investor`, `customer`, and `seed` modes). These printed scripted
