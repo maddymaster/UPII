@@ -179,6 +179,25 @@ def test_ask_happy_path(seeded, monkeypatch):
     assert [c["chunk_id"] for c in obj["citations"]] == ["c_md"]
 
 
+def test_ask_variant_abstention(seeded, monkeypatch):
+    """A variant abstention ('NOT FOUND' without citations) returns found=False
+    with no citations through the MCP upii_ask tool (T-001)."""
+    from upii.analysis.llm import NOT_FOUND_MESSAGE
+
+    monkeypatch.setattr("upii.analysis.llm.ollama.list", lambda: {"models": []})
+    monkeypatch.setattr(
+        "upii.analysis.llm.ollama.generate",
+        lambda **_: {"response": "The information is not in the provided context. NOT FOUND"},
+    )
+    server = build_server(service=_service())
+    result, _ = _run(_call(server, "upii_ask", {"question": "what is alpha?"}))
+    assert result.isError is False
+    obj = _parse_obj(result)
+    assert obj["found"] is False
+    assert obj["citations"] == []
+    assert obj["answer"] == NOT_FOUND_MESSAGE
+
+
 def test_list_sources_happy_path(seeded):
     server = build_server(service=_service())
     result, _ = _run(_call(server, "upii_list_sources"))

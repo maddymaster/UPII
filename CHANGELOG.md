@@ -20,7 +20,8 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   cites no source (T-001). The exact ``NOT_FOUND`` token always abstains (unchanged).
   Case-sensitive: lowercase "not found" in a real answer never abstains. A cited variant
   (e.g. "404 NOT FOUND [1]") survives as a hit because the citation proves it is quoting
-  a document, not declining to answer.
+  a document, not declining to answer. Word boundaries prevent false positives ("THE NOT
+  FOUNDATION REPORT", "CANNOT FOUND"). Added a real MCP server test for variant abstention.
 
 - Flaky `tests/test_watcher_advanced.py::test_rename_behavior` (T-012). On a loaded Linux machine
   the capture of the renamed file sometimes had not settled within the test's fixed 0.5 s wait

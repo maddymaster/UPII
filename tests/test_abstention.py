@@ -166,6 +166,9 @@ def _ctx(n=2):
     ("NOT-FOUND", False, []),
     ("404 NOT FOUND [1]", True, [1]),
     ("file not found [1]", True, [1]),    # lowercase never abstains
+    # word-boundary guards (T-001): no false positives on embedded words
+    ("THE NOT FOUNDATION REPORT", True, []),
+    ("CANNOT FOUND", True, []),
 ])
 def test_answer_flag_is_structured(raw, found, cited):
     with patch("upii.analysis.llm.ollama.list", return_value={"models": []}), \
@@ -185,11 +188,11 @@ def test_answer_without_context_never_calls_model():
 
 
 # -- MCP service variant abstention ---------------------------------------------------
-def test_mcp_variant_abstention():
+def test_api_variant_abstention():
     """A variant abstention ("NOT FOUND" without citations) is reported as found=false
-    with no sources through the MCP tool surface.
+    with no sources through the HTTP /ask endpoint.
 
-    This tests the full chain: LLM -> answer() parsing -> HTTP response (MCP calls /ask).
+    This tests the full chain: LLM -> answer() parsing -> HTTP response.
     """
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient

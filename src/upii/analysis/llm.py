@@ -15,6 +15,7 @@ PROVIDERS = ("local", "remote")
 NOT_FOUND_TOKEN = "NOT_FOUND"
 NOT_FOUND_MESSAGE = "Not found in your memory."
 _NOT_FOUND_RE = re.compile(r"\bNOT_FOUND\b")
+_NOT_FOUND_VARIANT_RE = re.compile(r"\bNOT[ -]FOUND\b")
 _CITATION_RE = re.compile(r"\[(\d{1,3})\]")
 
 
@@ -171,7 +172,7 @@ Answer:"""
             return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
         cited = sorted({int(n) for n in _CITATION_RE.findall(raw) if 1 <= int(n) <= len(chunks)})
         # Uppercase NOT FOUND / NOT-FOUND without citations -> abstain.
-        if not cited and re.search(r'NOT\s+FOUND|NOT[-_]FOUND', raw):
+        if not cited and _NOT_FOUND_VARIANT_RE.search(raw):
             return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
         return Answer(text=raw, found=True, cited=cited)
 
