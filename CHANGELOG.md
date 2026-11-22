@@ -16,6 +16,12 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Fixed
 
+- The overlay lists only the sources the answer cites, each with its file path and a
+  one-line excerpt, and none when the model abstains (T-046). It used to list every
+  retrieved passage with only its ranking signal (for example `semantic:1.00+temporal:0.25`),
+  including for not-found answers, unlike `upii ask` and MCP. The overlay page now also
+  escapes answers and passages instead of inserting them as raw HTML.
+
 - Uppercase "NOT FOUND" / "NOT-FOUND" variants now correctly abstain when the answer
   cites no source (T-001). The exact ``NOT_FOUND`` token always abstains (unchanged).
   Case-sensitive: lowercase "not found" in a real answer never abstains. A cited variant
