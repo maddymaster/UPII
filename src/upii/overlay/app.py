@@ -148,25 +148,31 @@ HTML_TEMPLATE = """
             }
         }
 
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = (s === null || s === undefined) ? '' : String(s);
+            return d.innerHTML;
+        }
+
         function renderResponse(data) {
             if (data.error) {
-                results.innerHTML = `<div style="color:red">${data.error}</div>`;
+                results.innerHTML = `<div style="color:red">${esc(data.error)}</div>`;
                 return;
             }
 
-            let html = `<div class="answer-block">${data.answer.replace(/\\n/g, '<br>')}</div>`;
+            let html = `<div class="answer-block">${esc(data.answer).replace(/\\n/g, '<br>')}</div>`;
             if (data.model) {
-                html += `<div style="opacity:0.6;font-size:12px">Answered by: ${data.model.name} (${data.model.provider}, ${data.model.location})</div>`;
+                html += `<div style="opacity:0.6;font-size:12px">Answered by: ${esc(data.model.name)} (${esc(data.model.provider)}, ${esc(data.model.location)})</div>`;
             }
-            
-            if (data.ranking && data.ranking.length > 0) {
-                html += `<div class="sources-list"><strong>Sources Used:</strong>`;
-                data.ranking.forEach(r => {
-                    let tagClass = 'tag-' + r.source;
+
+            // Only the sources the answer cites; none for a not-found answer.
+            if (data.sources && data.sources.length > 0) {
+                html += `<div class="sources-list"><strong>Sources used:</strong>`;
+                data.sources.forEach(s => {
                     html += `
                         <div class="source-item">
-                            <span class="${tagClass}">[${r.source}]</span>
-                            <span>${r.reason}</span>
+                            <span>[${esc(s.n)}] ${esc(s.path)}</span>
+                            <div style="opacity:0.7;font-size:12px">${esc(s.excerpt)}</div>
                         </div>
                     `;
                 });
@@ -179,6 +185,12 @@ HTML_TEMPLATE = """
 </html>
 """
 
+def _excerpt(text: Optional[str], width: int = 240) -> str:
+    """One line of the passage, whitespace collapsed, cut at ``width`` characters."""
+    flat = " ".join((text or "").split())
+    return flat if len(flat) <= width else flat[: width - 1].rstrip() + "…"
+
+
 class OverlayAPI:
     """Exposed to JS."""
     def __init__(self):
@@ -186,18 +198,33 @@ class OverlayAPI:
         self.llm = LocalLLM()
     
     def query(self, text: str) -> dict:
-        """Handle query from frontend."""
+        """Handle query from frontend.
+
+        ``sources`` lists only the passages the answer cites (number, document path,
+        one-line excerpt), and none when the model abstains, matching `upii ask` and MCP.
+        ``ranking`` keeps the per-signal ranking of every retrieved passage for debugging;
+        the overlay does not display it.
+        """
         try:
             # 1. Rehydrate
             ranked_chunks = self.rehydrator.rehydrate(text, limit=5,
                                                       min_similarity=config.rag_min_similarity)
             if not ranked_chunks:
-                return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None, "ranking": []}
+                return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None,
+                        "sources": [], "ranking": []}
 
             # 2. Generate
             answer = self.llm.answer(text, ranked_chunks)
-            
-            # 3. Format visual ranking debug info
+
+            # 3. Cited sources only
+            sources = []
+            if answer.found:
+                for n in answer.cited:
+                    c = ranked_chunks[n - 1]
+                    sources.append({"n": n, "path": self._doc_path(c.doc_hash),
+                                    "excerpt": _excerpt(c.text)})
+
+            # 4. Per-signal ranking (debug only, not displayed)
             ranking_info = []
             for c in ranked_chunks:
                 ranking_info.append({
@@ -205,16 +232,26 @@ class OverlayAPI:
                     "reason": c.boost_reason,
                     "preview": c.text[:50] + "..."
                 })
-                
+
             return {
                 "answer": answer.text,
                 "found": answer.found,
                 "model": self.llm.model_info(),
+                "sources": sources,
                 "ranking": ranking_info
             }
         except Exception as e:
             logger.error(f"Overlay Query Error: {e}")
             return {"error": str(e)}
+
+    def _doc_path(self, doc_hash: str) -> str:
+        """The document's path as stored at ingest; the hash if it has none (synthetic)."""
+        try:
+            from upii.storage.db import DB
+            doc = DB().get_document_by_id(doc_hash)
+        except Exception:
+            doc = None
+        return (doc or {}).get("source_path") or doc_hash
 
     def hide_window(self):
         """Allow JS to close/hide window."""
