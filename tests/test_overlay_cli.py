@@ -29,7 +29,7 @@ def test_overlay_with_extra_starts_it(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     r = CliRunner().invoke(app, ["overlay"])
     assert r.exit_code == 0, r.output
-    started.assert_called_once()
+    started.assert_called_once_with(debug=False)
     assert str(tmp_path) in " ".join(r.output.split()).replace(" ", "") or "Memory folder" in r.output
 
 
@@ -56,3 +56,18 @@ def test_help_shows_the_extras():
     for cmd, extra in (("overlay", "upii[overlay]"), ("serve", "upii[api]")):
         out = " ".join(CliRunner().invoke(app, [cmd, "--help"]).output.split())
         assert extra in out, (cmd, out)
+
+
+def test_overlay_debug_flag_turns_on_the_inspector(monkeypatch, tmp_path):
+    real = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec",
+                        lambda name, *a: object() if name in ("webview", "pynput") else real(name, *a))
+    for mod in ("webview", "pynput", "pynput.keyboard"):
+        monkeypatch.setitem(sys.modules, mod, MagicMock())
+    started = MagicMock()
+    import upii.overlay.daemon as daemon
+    monkeypatch.setattr(daemon, "run_overlay", started)
+    monkeypatch.chdir(tmp_path)
+    r = CliRunner().invoke(app, ["overlay", "--debug"])
+    assert r.exit_code == 0, r.output
+    started.assert_called_once_with(debug=True)

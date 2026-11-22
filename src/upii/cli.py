@@ -155,7 +155,9 @@ OVERLAY_MODULES = {"webview": "pywebview", "pynput": "pynput"}
 
 
 @app.command()
-def overlay():
+def overlay(
+    debug: bool = typer.Option(False, "--debug", help="Turn on the web inspector (development only)."),
+):
     """Open the desktop overlay: ask your memory from any app (needs: pip install "upii\\[overlay]")."""
     import importlib.util
 
@@ -169,7 +171,7 @@ def overlay():
         console.print("[dim]macOS: the Cmd+Shift+K hotkey needs this terminal app allowed in System Settings "
                       "> Privacy & Security > Accessibility.[/dim]")
     from upii.overlay.daemon import run_overlay
-    run_overlay()
+    run_overlay(debug=debug)
 
 
 @app.command()
