@@ -15,7 +15,7 @@ PROVIDERS = ("local", "remote")
 NOT_FOUND_TOKEN = "NOT_FOUND"
 NOT_FOUND_MESSAGE = "Not found in your memory."
 _NOT_FOUND_RE = re.compile(r"\bNOT_FOUND\b")
-_NOT_FOUND_VARIANT_RE = re.compile(r"\bNOT[ -]FOUND\b")
+_NOT_FOUND_VARIANT_RE = re.compile(r"\bNOT[ -]?FOUND\b")  # NOT FOUND, NOT-FOUND, NOTFOUND
 _CITATION_RE = re.compile(r"\[(\d{1,3})\]")
 
 
