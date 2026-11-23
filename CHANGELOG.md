@@ -16,6 +16,10 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Added
 
+- `demo_dataset/` grows from 4 to 42 files (T-060): 38 synthetic documents for one invented company
+  (meeting notes, project briefs, policies, finance, support, engineering, personal notes) in
+  subfolders, so a demo shows retrieval choosing among many sources. No real people or companies.
+  The 4 original files are unchanged. Not part of `eval/`.
 - Overlay answer line (T-058): "Smritium · answered on this device" with "Model: <name>, running
   locally. Nothing left this Mac." under it, or "Smritium · answered via <provider> (remote)" without
   that claim. Ollama counts as on this device only when its host (OLLAMA_HOST) is this machine;
