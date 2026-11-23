@@ -313,3 +313,105 @@ if __name__ == "__main__":
     test_overlay_api_structure(MockMonkeyPatch())
     test_daemon_hotkey_toggles_the_app()
     print("All tests passed manually.")
+
+
+# --- answer line (T-058) ---
+
+LOCAL = {"name": "llama3.2", "provider": "ollama", "location": "local"}
+
+
+def test_answer_line_local_on_a_mac():
+    from upii.overlay.app import answered_line
+    line = answered_line(LOCAL, brand="Smritium", ollama_host="", platform="darwin")
+    assert line == {"main": "Smritium · answered on this device",
+                    "detail": "Model: llama3.2, running locally. Nothing left this Mac.",
+                    "on_device": True}
+
+
+@pytest.mark.parametrize("host", ["", "localhost", "127.0.0.1:11434", "http://localhost:11434",
+                                  "http://[::1]:11434", "0.0.0.0"])
+def test_answer_line_ollama_on_this_machine_is_on_device(host):
+    from upii.overlay.app import answered_line
+    assert answered_line(LOCAL, brand="B", ollama_host=host, platform="darwin")["on_device"] is True
+
+
+def test_answer_line_other_os_says_this_computer():
+    from upii.overlay.app import answered_line
+    line = answered_line(LOCAL, brand="B", ollama_host="", platform="linux")
+    assert line["detail"] == "Model: llama3.2, running locally. Nothing left this computer."
+
+
+def test_answer_line_remote_provider_says_remote_and_makes_no_claim():
+    from upii.overlay.app import answered_line
+    line = answered_line({"name": "gemini-2.5-flash", "provider": "gemini", "location": "remote"},
+                         brand="Smritium", ollama_host="", platform="darwin")
+    assert line["main"] == "Smritium · answered via gemini (remote)"
+    assert line["on_device"] is False
+    assert "Nothing left" not in line["detail"] and "locally" not in line["detail"]
+
+
+@pytest.mark.parametrize("host", ["192.168.1.20", "http://spark.local:11434", "https://ollama.example.com"])
+def test_answer_line_ollama_on_another_machine_is_remote(host):
+    """model_info() calls every Ollama "local"; the overlay must not claim on-device
+    when OLLAMA_HOST points elsewhere."""
+    from upii.overlay.app import answered_line
+    line = answered_line(LOCAL, brand="Smritium", ollama_host=host, platform="darwin")
+    assert line["on_device"] is False
+    assert line["main"].startswith("Smritium · answered via ollama on ") and line["main"].endswith("(remote)")
+    assert "Nothing left" not in line["detail"]
+
+
+def test_answer_line_reads_ollama_host_from_env(monkeypatch):
+    from upii.overlay.app import answered_line
+    monkeypatch.setenv("OLLAMA_HOST", "10.0.0.5:11434")
+    assert answered_line(LOCAL, brand="B", platform="darwin")["on_device"] is False
+    monkeypatch.delenv("OLLAMA_HOST")
+    assert answered_line(LOCAL, brand="B", platform="darwin")["on_device"] is True
+
+
+def test_answer_line_brand_is_the_display_setting(monkeypatch):
+    from upii.overlay.app import answered_line
+    from upii.core.config import config
+    assert config.display_brand == "Smritium"  # default
+    monkeypatch.setattr(config, "display_brand", "Acme Memory")
+    assert answered_line(LOCAL, ollama_host="", platform="darwin")["main"] == "Acme Memory · answered on this device"
+
+
+def test_display_brand_loads_from_config_file(tmp_path):
+    from upii.core.config import Config
+    p = tmp_path / ".upii_config.yaml"
+    p.write_text("display_brand: Acme Memory\n")
+    assert Config.load(str(p)).display_brand == "Acme Memory"
+
+
+def test_answer_line_none_when_no_model_answered():
+    from upii.overlay.app import answered_line
+    assert answered_line(None) is None
+
+
+def test_query_keeps_the_model_field_and_adds_the_line(monkeypatch):
+    from upii.analysis.llm import Answer
+    monkeypatch.delenv("OLLAMA_HOST", raising=False)
+    api = _api(monkeypatch, Answer(text="See [1].", found=True, cited=[1]), {"d1": "/notes/a.md"})
+    out = api.query("q")
+    assert out["model"] == {"name": "m", "provider": "ollama", "location": "local"}  # unchanged
+    assert out["answered"]["main"].endswith("· answered on this device")
+
+
+def test_not_found_has_no_answer_line(monkeypatch):
+    """Nothing reached the similarity threshold, so no model was called: no answer line."""
+    from upii.analysis.llm import Answer
+    api = _api(monkeypatch, Answer(text="unused", found=True, cited=[]), {})
+
+    class Empty:
+        def rehydrate(self, *a, **k):
+            return []
+    api._rehydrator = Empty()
+    out = api.query("q")
+    assert out["answered"] is None and out["model"] is None
+
+
+def test_page_renders_the_answer_line_escaped():
+    from upii.overlay.app import HTML_TEMPLATE
+    assert "esc(data.answered.main)" in HTML_TEMPLATE and "esc(data.answered.detail)" in HTML_TEMPLATE
+    assert "Answered by:" not in HTML_TEMPLATE

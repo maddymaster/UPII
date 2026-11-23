@@ -16,6 +16,11 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Added
 
+- Overlay answer line (T-058): "Smritium · answered on this device" with "Model: <name>, running
+  locally. Nothing left this Mac." under it, or "Smritium · answered via <provider> (remote)" without
+  that claim. Ollama counts as on this device only when its host (OLLAMA_HOST) is this machine;
+  otherwise it is worded as remote. The name comes from the new `display_brand` setting (default
+  "Smritium"). The package, the CLI, `upii ask` and the API `model` field are unchanged.
 - `scripts/bench/ask_startup.py` (T-050): times `upii ask` as a new process and, in one
   process, each step (imports, embedding model load, search, answer), plus questions asked in a
   process that stays running. Run it from the memory folder. It only measures.

@@ -11,6 +11,9 @@ class Config:
     chunk_overlap: int = 200
     # Identity (used for self-authored style filtering & signatures)
     user_name: str = "Maddy"
+    # Display only: the product name the overlay shows on its answer line. The package and
+    # the CLI stay `upii`; `upii ask` and the API do not use it.
+    display_brand: str = "Smritium"
     # LLM & RAG
     llm_model: str = "llama3.2" # Default to fast model
     # Which model answers: "local" (Ollama on this machine) or "remote" (Gemini).
