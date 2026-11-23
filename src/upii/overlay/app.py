@@ -207,6 +207,16 @@ HTML_TEMPLATE = """
                 });
                 html += `</div>`;
             }
+            // The model answered but cited nothing: the top-ranked passage, labelled as not cited.
+            if (data.closest) {
+                html += `<div class="sources-list"><strong>${esc(data.closest.label)}:</strong>`;
+                html += `
+                    <div class="source-item">
+                        <div class="source-path" title="${escAttr(data.closest.full_path)}">${esc(data.closest.path)}</div>
+                        <div class="source-excerpt">${esc(data.closest.excerpt)}</div>
+                    </div>
+                </div>`;
+            }
             results.innerHTML = html;
         }
     </script>
@@ -338,7 +348,8 @@ class OverlayAPI:
 
         ``sources`` lists only the passages the answer cites (number, short path, full
         path, one-line plain-text excerpt), and none when the model abstains, matching
-        `upii ask` and MCP. ``ranking`` keeps the per-signal ranking of every retrieved
+        `upii ask` and MCP. ``closest`` is set only when the model answered but cited
+        nothing: the top-ranked passage under UNCITED_LABEL, as `upii ask` shows it. ``ranking`` keeps the per-signal ranking of every retrieved
         passage for debugging; the overlay does not display it.
         """
         try:
@@ -347,7 +358,7 @@ class OverlayAPI:
                                                        min_similarity=config.rag_min_similarity)
             if not ranked_chunks:
                 return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None,
-                        "answered": None, "sources": [], "ranking": []}
+                        "answered": None, "sources": [], "closest": None, "ranking": []}
 
             # 2. Generate
             answer = self._llm.answer(text, ranked_chunks)
@@ -360,6 +371,15 @@ class OverlayAPI:
                     full = _doc_path(c.doc_hash)
                     sources.append({"n": n, "path": _short_path(full), "full_path": full,
                                     "excerpt": _excerpt(c.text)})
+
+            # 3b. Answered without a citation: never invent one; show the top passage, labelled.
+            closest = None
+            if answer.found and not answer.cited:
+                from upii.cli import UNCITED_LABEL  # one label for both surfaces
+                c = ranked_chunks[0]
+                full = _doc_path(c.doc_hash)
+                closest = {"label": UNCITED_LABEL, "path": _short_path(full), "full_path": full,
+                           "excerpt": _excerpt(c.text)}
 
             model = self._llm.model_info()
 
@@ -378,6 +398,7 @@ class OverlayAPI:
                 "model": model,
                 "answered": answered_line(model),
                 "sources": sources,
+                "closest": closest,
                 "ranking": ranking_info
             }
         except Exception as e:

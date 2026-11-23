@@ -48,6 +48,9 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Fixed
 
+- Overlay (T-064): an answer that cites nothing now shows the top-ranked passage under "Closest
+  passage (not cited by the model)", as `upii ask` does since T-061, instead of an answer with no
+  passage at all. It is never listed as "Sources used" and never shown for a not-found answer.
 - `upii ask`: when the model answers without citing a passage, it now shows the passage retrieval
   ranked first, under "Closest passage (not cited by the model)", instead of no source at all (T-061).
   No citation is invented; "Sources used" still lists only what the answer cites.

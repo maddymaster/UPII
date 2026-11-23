@@ -415,3 +415,45 @@ def test_page_renders_the_answer_line_escaped():
     from upii.overlay.app import HTML_TEMPLATE
     assert "esc(data.answered.main)" in HTML_TEMPLATE and "esc(data.answered.detail)" in HTML_TEMPLATE
     assert "Answered by:" not in HTML_TEMPLATE
+
+
+def test_uncited_answer_shows_the_closest_passage_not_sources(monkeypatch):
+    from upii.analysis.llm import Answer
+    from upii.cli import UNCITED_LABEL
+    import os
+    root = os.path.abspath(os.sep + "notes")
+    api = _api(monkeypatch, Answer(text="It is 42.", found=True, cited=[]),
+               {f"d{i}": os.path.join(root, f"{c}.md") for i, c in ((1, "a"), (2, "b"), (3, "c"))})
+    out = api.query("q")
+    assert out["sources"] == []
+    assert out["closest"] == {"label": UNCITED_LABEL, "path": os.path.join("notes", "a.md"),
+                              "full_path": os.path.join(root, "a.md"),
+                              "excerpt": "Passage 1 with spaces"}  # the top-ranked passage
+    assert UNCITED_LABEL == "Closest passage (not cited by the model)"
+
+
+def test_cited_answer_and_abstention_have_no_closest_passage(monkeypatch):
+    from upii.analysis.llm import Answer, NOT_FOUND_MESSAGE
+    paths = {"d1": "/notes/a.md", "d2": "/notes/b.md", "d3": "/notes/c.md"}
+    assert _api(monkeypatch, Answer(text="In [2].", found=True, cited=[2]), paths).query("q")["closest"] is None
+    out = _api(monkeypatch, Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[]), paths).query("q")
+    assert out["closest"] is None and out["sources"] == []
+
+
+def test_nothing_retrieved_has_no_closest_passage(monkeypatch):
+    from upii.analysis.llm import Answer
+    api = _api(monkeypatch, Answer(text="x", found=True, cited=[]), {})
+
+    class Empty:
+        def rehydrate(self, *a, **k):
+            return []
+    api._rehydrator = Empty()
+    assert api.query("q")["closest"] is None
+
+
+def test_page_renders_the_closest_passage_escaped():
+    from upii.overlay.app import HTML_TEMPLATE
+    assert "if (data.closest)" in HTML_TEMPLATE
+    for field in ("data.closest.label", "data.closest.path", "data.closest.excerpt"):
+        assert f"esc({field})" in HTML_TEMPLATE
+    assert "escAttr(data.closest.full_path)" in HTML_TEMPLATE
