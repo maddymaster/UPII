@@ -55,6 +55,9 @@ def _source_label(r, paths: dict) -> str:
     return _display_path(paths[r.doc_hash]) if r.doc_hash in paths else r.doc_hash
 
 
+UNCITED_LABEL = "Closest passage (not cited by the model)"
+
+
 def _excerpt(text, width: int = 240) -> str:
     flat = " ".join((text or "").split())
     return flat if len(flat) <= width else flat[: width - 1].rstrip() + "…"
@@ -408,6 +411,14 @@ def ask(
                 r = results[n - 1]
                 console.print(f"\\[{n}] {escape(_source_label(r, paths))}")
                 console.print(f"    [dim]{escape(_excerpt(r.text))}[/dim]")
+        elif answer.found:
+            # The model answered but cited nothing. Never invent a citation: show the
+            # passage retrieval ranked first, labelled as not cited.
+            r = results[0]
+            paths = _source_paths([r])
+            console.print(f"\n[dim]{UNCITED_LABEL}:[/dim]")
+            console.print(f"{escape(_source_label(r, paths))}")
+            console.print(f"    [dim]{escape(_excerpt(r.text))}[/dim]")
 
     except Exception as e:
         console.print(f"[red]Generation failed: {e}[/red]")

@@ -44,6 +44,11 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Fixed
 
+- `upii ask`: when the model answers without citing a passage, it now shows the passage retrieval
+  ranked first, under "Closest passage (not cited by the model)", instead of no source at all (T-061).
+  No citation is invented; "Sources used" still lists only what the answer cites.
+- The answer model's `NOTFOUND` (no underscore, seen from llama3.2) now counts as not found, like
+  `NOT FOUND` and `NOT-FOUND` (T-061). Before, it was printed as an answer.
 - Overlay window behaviour (T-048). Escape now hides the window (its handler was a no-op) and
   Cmd+Shift+K shows it again; both share one shown/hidden state. The web inspector is off
   unless you run `upii overlay --debug`. The page's API object exposes only the two methods

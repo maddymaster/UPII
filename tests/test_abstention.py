@@ -183,11 +183,14 @@ def _ctx(n=2):
     # uppercase NOT FOUND / NOT-FOUND variants (T-001)
     ("The information is not in the provided context. NOT FOUND", False, []),
     ("NOT-FOUND", False, []),
+    ("NOTFOUND", False, []),                # T-061 run: llama3.2 dropped the underscore
     ("404 NOT FOUND [1]", True, [1]),
     ("file not found [1]", True, [1]),    # lowercase never abstains
     # word-boundary guards (T-001): no false positives on embedded words
     ("THE NOT FOUNDATION REPORT", True, []),
     ("CANNOT FOUND", True, []),
+    ("NOTFOUNDATION", True, []),
+    ("CANNOTFOUND", True, []),
 ])
 def test_answer_flag_is_structured(raw, found, cited):
     with patch("upii.analysis.llm.ollama.list", return_value={"models": []}), \
