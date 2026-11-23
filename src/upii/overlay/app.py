@@ -1,9 +1,12 @@
 
+import ipaddress
 import logging
 import os
 import re
+import sys
 import threading
 from typing import Callable, Optional
+from urllib.parse import urlsplit
 
 try:
     import webview
@@ -93,9 +96,16 @@ HTML_TEMPLATE = """
             color: #f5f5f5;
         }
 
-        .answered-by {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.75);
+        .answered-main {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .answered-detail {
+            margin-top: 2px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
         }
         
         .sources-list {
@@ -179,8 +189,9 @@ HTML_TEMPLATE = """
             }
 
             let html = `<div class="answer-block">${esc(data.answer).replace(/\\n/g, '<br>')}</div>`;
-            if (data.model) {
-                html += `<div class="answered-by">Answered by: ${esc(data.model.name)} (${esc(data.model.provider)}, ${esc(data.model.location)})</div>`;
+            if (data.answered) {
+                html += `<div class="answered-main">${esc(data.answered.main)}</div>`;
+                html += `<div class="answered-detail">${esc(data.answered.detail)}</div>`;
             }
 
             // Only the sources the answer cites; none for a not-found answer.
@@ -252,6 +263,62 @@ def _short_path(path: str) -> str:
     return os.path.join(folder, os.path.basename(path)) if folder else os.path.basename(path)
 
 
+def _ollama_hostname(host: Optional[str]) -> str:
+    """The machine an Ollama host setting (OLLAMA_HOST) points at; "" when unset."""
+    h = (host or "").strip()
+    if not h:
+        return ""
+    if "://" not in h:
+        h = "http://" + h
+    try:
+        return urlsplit(h).hostname or ""
+    except ValueError:
+        return h
+
+
+def _on_this_machine(hostname: str) -> bool:
+    """True for no host (the Ollama client then uses localhost), localhost, a loopback
+    address (127.0.0.0/8, ::1) or the unspecified address (0.0.0.0, ::), which a client
+    connects to on this machine."""
+    if not hostname or hostname.lower() == "localhost":
+        return True
+    try:
+        ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_unspecified
+
+
+def answered_line(model: Optional[dict], brand: Optional[str] = None,
+                  ollama_host: Optional[str] = None, platform: Optional[str] = None) -> Optional[dict]:
+    """The overlay's answer line: ``{"main", "detail", "on_device"}``, or None when no model
+    answered (not found).
+
+    It says "answered on this device" and "Nothing left this Mac" only when the answer
+    really stayed here: a local provider, and for Ollama a host on this machine.
+    ``model_info()`` reports every Ollama as local, so the host is checked here
+    (OLLAMA_HOST, as the Ollama client reads it). Anything else is worded as remote.
+    """
+    if not model:
+        return None
+    brand = brand if brand is not None else getattr(config, "display_brand", "Smritium")
+    platform = platform if platform is not None else sys.platform
+    here = "this Mac" if platform == "darwin" else "this computer"
+    name, provider = model.get("name", "?"), model.get("provider", "?")
+    host = _ollama_hostname(os.environ.get("OLLAMA_HOST") if ollama_host is None else ollama_host)
+    if model.get("location") == "local" and (provider != "ollama" or _on_this_machine(host)):
+        return {"main": f"{brand} · answered on this device",
+                "detail": f"Model: {name}, running locally. Nothing left {here}.",
+                "on_device": True}
+    if provider == "ollama":
+        return {"main": f"{brand} · answered via ollama on {host} (remote)",
+                "detail": f"Model: {name}, running on {host}.",
+                "on_device": False}
+    return {"main": f"{brand} · answered via {provider} (remote)",
+            "detail": f"Model: {name}.",
+            "on_device": False}
+
+
 class OverlayAPI:
     """The object pywebview exposes to the page as ``pywebview.api``.
 
@@ -280,7 +347,7 @@ class OverlayAPI:
                                                        min_similarity=config.rag_min_similarity)
             if not ranked_chunks:
                 return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None,
-                        "sources": [], "ranking": []}
+                        "answered": None, "sources": [], "ranking": []}
 
             # 2. Generate
             answer = self._llm.answer(text, ranked_chunks)
@@ -294,6 +361,8 @@ class OverlayAPI:
                     sources.append({"n": n, "path": _short_path(full), "full_path": full,
                                     "excerpt": _excerpt(c.text)})
 
+            model = self._llm.model_info()
+
             # 4. Per-signal ranking (debug only, not displayed)
             ranking_info = []
             for c in ranked_chunks:
@@ -306,7 +375,8 @@ class OverlayAPI:
             return {
                 "answer": answer.text,
                 "found": answer.found,
-                "model": self._llm.model_info(),
+                "model": model,
+                "answered": answered_line(model),
                 "sources": sources,
                 "ranking": ranking_info
             }
