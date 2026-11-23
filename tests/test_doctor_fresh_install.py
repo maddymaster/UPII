@@ -208,6 +208,7 @@ def test_doctor_imports_no_transformer():
     """Importing diagnostics must not pull in sentence_transformers / huggingface_hub / torch."""
     code = (
         "import sys\n"
+        "import upii.analysis.model_cache\n"
         "import upii.analysis.diagnostics\n"
         "import upii.cli\n"
         "_bad = [m for m in sorted(sys.modules.keys()) if\n"
@@ -225,31 +226,31 @@ def test_doctor_imports_no_transformer():
     assert len(loaded) == 0, f"Heavy modules loaded: {loaded}"
 
 
-def test_model_is_cached_agrees_with_embeddings(tmp_path, monkeypatch):
-    """The private copy in diagnostics must agree with embeddings.model_is_cached,
-    in an isolated cache (never the machine's real Hugging Face cache)."""
-    from upii.analysis.diagnostics import _model_is_cached as local_copy
-    from upii.analysis.embeddings import model_is_cached as canonical
+def test_one_model_cache_implementation():
+    """Both callers must use the single implementation, not a copy."""
+    from upii.analysis import model_cache, diagnostics, embeddings
 
-    for var in ("SENTENCE_TRANSFORMERS_HOME", "HF_HOME", "XDG_CACHE_HOME"):
+    assert diagnostics._model_is_cached is model_cache.model_is_cached
+    assert embeddings.model_is_cached is model_cache.model_is_cached
+
+
+def test_model_is_cached_behaviour(tmp_path, monkeypatch):
+    """Model-cache logic works correctly in an isolated cache."""
+    from upii.analysis import model_cache as mc
+
+    for var in ("SENTENCE_TRANSFORMERS_HOME", "HF_HUB_CACHE", "XDG_CACHE_HOME"):
         monkeypatch.delenv(var, raising=False)
     hub = tmp_path / "hub"
     monkeypatch.setenv("HF_HUB_CACHE", str(hub))
-    snap = hub / "models--sentence-transformers--all-MiniLM-L6-v2" / "snapshots" / "abc123"
-    snap.mkdir(parents=True)
-    (snap / "modules.json").write_text("[]")
+    cached_snap = hub / "models--sentence-transformers--all-MiniLM-L6-v2" / "snapshots" / "abc123"
+    cached_snap.mkdir(parents=True)
+    (cached_snap / "modules.json").write_text("[]")
 
-    def both(name):
-        a, b = local_copy(name), canonical(name)
-        assert a == b, f"{name}: diagnostics={a} embeddings={b}"
-        return a
-
-    assert both("all-MiniLM-L6-v2") is False            # modules.json but no weights
-    (snap / "model.safetensors").write_bytes(b"\0")
-    assert both("all-MiniLM-L6-v2") is True             # cached snapshot
-    assert both(str(tmp_path)) is True                  # a local model folder
-    assert both("someone/missing-model") is False       # not cached anywhere
-
+    assert mc.model_is_cached("all-MiniLM-L6-v2") is False  # no weights yet
+    (cached_snap / "model.safetensors").touch()
+    assert mc.model_is_cached("all-MiniLM-L6-v2") is True   # cached snapshot
+    assert mc.model_is_cached(str(tmp_path)) is True         # a local folder
+    assert mc.model_is_cached("someone/missing-model") is False  # not cached
 
 # --- FAILSAFE in a WARN text stays PASS (item 2 review fix) ---
 

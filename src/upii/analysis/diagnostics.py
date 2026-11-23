@@ -1,60 +1,20 @@
 """`upii doctor` health-check helpers — a clean-machine check that never downloads
 or imports sentence-transformers / huggingface_hub / torch.
-
-The model-is-cached logic is copied from ``upii.analysis.embeddings.model_is_cached``
-(see that file for the original); this module intentionally keeps its own copy so
-doctor can run without importing those heavyweight packages.
 """
 
-import glob
 import os
 import shutil
 import sqlite3
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 import ollama
+from upii.analysis.model_cache import model_is_cached as _model_is_cached  # noqa: F401
 from upii.core.config import config
 from upii.storage.db import DB
 from upii.storage.vector import LocalVectorStore
 
 logger = logging.getLogger(__name__)
-
-# --- model-is-cached (kept in sync with upii.analysis.embeddings.model_is_cached) ---
-_WEIGHTS: tuple[str, ...] = ("model.safetensors", "pytorch_model.bin")
-
-
-def _hub_cache_dirs() -> List[str]:
-    """Where a SentenceTransformer model may already be cached, in lookup order."""
-    dirs: list[str] = []
-    if os.environ.get("SENTENCE_TRANSFORMERS_HOME"):
-        dirs.append(os.environ["SENTENCE_TRANSFORMERS_HOME"])
-    if os.environ.get("HF_HUB_CACHE"):
-        dirs.append(os.environ["HF_HUB_CACHE"])
-    elif os.environ.get("HF_HOME"):
-        dirs.append(os.path.join(os.environ["HF_HOME"], "hub"))
-    else:
-        xdg = os.environ.get("XDG_CACHE_HOME") or os.path.join(
-            os.path.expanduser("~"), ".cache"
-        )
-        dirs.append(os.path.join(xdg, "huggingface", "hub"))
-    return dirs
-
-
-def _model_is_cached(model_name: str) -> bool:
-    """True if *model_name* loads without the network."""
-    if os.path.isdir(model_name):
-        return True
-    repo = model_name if "/" in model_name else f"sentence-transformers/{model_name}"
-    folder = "models--" + repo.replace("/", "--")
-    for cache in _hub_cache_dirs():
-        for snap in glob.glob(os.path.join(cache, folder, "snapshots", "*")):
-            if os.path.isfile(os.path.join(snap, "modules.json")) and any(
-                os.path.isfile(os.path.join(snap, w)) for w in _WEIGHTS
-            ):
-                return True
-    return False
-
 
 # --------------------------------------------------------------------------- #
 # remediation hints                                                           #
