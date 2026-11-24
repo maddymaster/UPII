@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field
 import urllib.request
 import urllib.error
+import time
 from typing import Dict, List, Optional
 from upii.core.config import config
 from upii.core.types import Chunk
@@ -25,6 +26,17 @@ class Answer:
     text: str
     found: bool
     cited: List[int] = field(default_factory=list)  # 1-based indices into the chunks given
+    usage: Optional[Dict] = None  # input/output token counts, latency, model
+
+
+def _estimate(text: str) -> Dict[str, object]:
+    """Heuristic: ~4 chars per token on both sides. estimated=True."""
+    length = len(text)
+    return {
+        "input_tokens": length // 4,
+        "output_tokens": max(1, length // 4),
+        "estimated": True,
+    }
 
 
 class LocalLLM:
@@ -51,6 +63,75 @@ class LocalLLM:
 
         if not self.use_gemini:
             self._check_ollama_connection()
+
+    def _generate_with_usage(self, prompt: str) -> tuple[str, Dict]:
+        """Call the active provider and return ``(response_text, usage_dict)``.
+
+        Usage dict shape: {
+            "input_tokens": int, "output_tokens": int,
+            "latency_ms": int, "model": str, "estimated": bool,
+        }
+        For mock mode we estimate ~4 chars/token on both sides. On retry we report
+        the retry counts plus total wall-clock latency. Gemini returns no duration
+        in its response body, so we measure it ourselves and mark ``estimated=True``.
+        """
+        t0 = time.perf_counter()
+        if self.use_gemini:
+            resp = self._call_gemini(prompt)
+            latency_ms = int((time.perf_counter() - t0) * 1_000)
+            return (resp, {
+                "input_tokens": len(prompt) // 4,
+                "output_tokens": max(1, len(resp) // 4),
+                "latency_ms": latency_ms,
+                "model": self.gemini_model,
+                "estimated": True,
+            })
+
+        if self.is_mock:
+            resp = "This is a simulated AI response (Ollama not connected)."
+            return (resp, {
+                "input_tokens": len(prompt) // 4,
+                "output_tokens": max(1, len(resp) // 4),
+                "latency_ms": int((time.perf_counter() - t0) * 1_000),
+                "model": "mock",
+                "estimated": True,
+            })
+
+        last_exc = None
+        for attempt in ("gpu", "cpu"):
+            try:
+                kwargs: dict = {}
+                if attempt == "cpu":
+                    print("[WARN] GPU Generation failed. Retrying with CPU only...")
+                    kwargs["options"] = {"num_gpu": 0}
+                response = ollama.generate(model=self.model, prompt=prompt, **kwargs)
+                resp_text = response['response']
+                latency_ms = int((time.perf_counter() - t0) * 1_000)
+                return (resp_text, {
+                    "input_tokens": response.get('prompt_eval_count', 0),
+                    "output_tokens": response.get('eval_count', 0),
+                    "latency_ms": latency_ms,
+                    "model": self.model,
+                    "estimated": False,
+                })
+            except Exception as exc:
+                last_exc = exc
+                if attempt == "gpu":
+                    print(f"[WARN] GPU Generation failed ({exc}). Retrying with CPU only...")
+                else:
+                    break
+
+        # Both attempts failed -> mock fallback
+        print("[WARN] Generation failed. System entering Mock Mode resiliency.")
+        self.is_mock = True
+        resp = "This is a simulated AI response (Ollama failed)."
+        return (resp, {
+            "input_tokens": len(prompt) // 4,
+            "output_tokens": max(1, len(resp) // 4),
+            "latency_ms": int((time.perf_counter() - t0) * 1_000),
+            "model": "mock",
+            "estimated": True,
+        })
 
     def model_info(self) -> Dict[str, str]:
         """The model that answers (read after generating: Ollama can drop to mock mid-call)."""
@@ -155,11 +236,12 @@ Answer:"""
     def answer(self, question: str, chunks: List[Chunk]) -> "Answer":
         """Grounded answer with a structured abstention flag and the sources it cites.
 
-        No context -> not found, and the model is never called. Otherwise the model
-        is told to reply with ``NOT_FOUND`` when the context lacks the answer; that
-        token (not any particular wording) sets ``found=False``. ``cited`` holds the
-        1-based source numbers the answer actually references, so callers list only
-        those — never citations for an answer that has none.
+        No context -> not found, and the model is never called (usage is None).
+        Otherwise the model is told to reply with ``NOT_FOUND`` when the context
+        lacks the answer; that token (not any particular wording) sets
+        ``found=False``. ``cited`` holds the 1-based source numbers the answer
+        actually references, so callers list only those — never citations for an
+        answer that has none.
 
         Uppercase variants ("NOT FOUND", "NOT-FOUND") are also treated as abstentions
         when the answer cites no source. A cited variant (e.g. "404 NOT FOUND [1]")
@@ -167,14 +249,16 @@ Answer:"""
         """
         if not chunks:
             return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
-        raw = (self.generate(self._answer_prompt(question, chunks)) or "").strip()
+        prompt = self._answer_prompt(question, chunks)
+        raw, usage = self._generate_with_usage(prompt)
+        raw = (raw or "").strip()
         if _NOT_FOUND_RE.search(raw):
-            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
+            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[], usage=usage)
         cited = sorted({int(n) for n in _CITATION_RE.findall(raw) if 1 <= int(n) <= len(chunks)})
         # Uppercase NOT FOUND / NOT-FOUND without citations -> abstain.
         if not cited and _NOT_FOUND_VARIANT_RE.search(raw):
-            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
-        return Answer(text=raw, found=True, cited=cited)
+            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[], usage=usage)
+        return Answer(text=raw, found=True, cited=cited, usage=usage)
 
     def answer_with_citations(self, question: str, chunks: List[Chunk]) -> str:
         """Generates an answer using the provided chunks as context (raw model text)."""

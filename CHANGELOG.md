@@ -16,6 +16,11 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Added
 
+- `upii ask` now prints token counts and latency per answer: ``Tokens: X in, Y out · Z ms`` (or ``Tokens: X in, Y out · Z ms (estimated)`` when the model omitted counts). The ``Answer.dataclass`` carries a new ``usage`` field (``Optional[dict]``) with shape ``{"input_tokens": int, "output_tokens": int, "latency_ms": int, "model": str, "estimated": bool}``. Latency is wall-clock measured with ``time.perf_counter()`` around the model call; on GPU-failure retry it reports the retry's counts plus total time. Mock mode and fallback use a documented heuristic of ~4 chars/token (``estimated=True``). T-005.
+- `POST /ask` HTTP response includes ``usage`` when a model answered (same shape as above), and ``null`` otherwise. Audit row records ``input_tokens``, ``output_tokens``, ``latency_ms`` via ``_note`` extra; never logs query or answer text.
+- MCP ``upii_ask`` tool returns ``usage`` on every answered call (passed through from the engine). MCP's internal call log is unchanged.
+- Overlay query result includes ``usage`` when a model answered.
+
 - `demo_dataset/` grows from 4 to 42 files (T-060): 38 synthetic documents for one invented company
   (meeting notes, project briefs, policies, finance, support, engineering, personal notes) in
   subfolders, so a demo shows retrieval choosing among many sources. No real people or companies.

@@ -199,6 +199,7 @@ class MCPService:
         answer = self.llm.answer(question, chunks)
         self._log("upii_ask", question, [r["chunk_id"] for r in results])
         cited = [results[n - 1] for n in answer.cited] if answer.found else []
+        usage = dict(answer.usage) if answer.usage else None
         return {
             "answer": answer.text,
             "found": answer.found,
@@ -208,6 +209,7 @@ class MCPService:
                 {"chunk_id": r["chunk_id"], "doc_path": r["doc_path"], "source": r["source"]}
                 for r in cited
             ],
+            "usage": usage,
         }
 
     def list_sources(self) -> List[Dict]:

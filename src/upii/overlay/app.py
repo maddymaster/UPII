@@ -378,7 +378,8 @@ class OverlayAPI:
                 "model": model,
                 "answered": answered_line(model),
                 "sources": sources,
-                "ranking": ranking_info
+                "ranking": ranking_info,
+                "usage": dict(answer.usage) if answer.usage else None,
             }
         except Exception as e:
             logger.error(f"Overlay Query Error: {e}")

@@ -403,6 +403,13 @@ def ask(
         console.print(answer.text)
         console.print(f"\n[dim]Answered by: {llm.model_label()}[/dim]")
 
+        # Tokens / latency
+        u = answer.usage
+        if u is not None:
+            in_t, out_t, ms = u.get("input_tokens", "?"), u.get("output_tokens", "?"), u.get("latency_ms", "?")
+            est = " (estimated)" if u.get("estimated") else ""
+            console.print(f"[dim]Tokens: {in_t} in, {out_t} out · {ms} ms{est}[/dim]")
+
         # Only the sources the answer actually cites; none for a not-found answer.
         if answer.found and answer.cited:
             console.print("\n[dim]Sources used:[/dim]")
