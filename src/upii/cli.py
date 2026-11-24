@@ -58,6 +58,14 @@ def _source_label(r, paths: dict) -> str:
 UNCITED_LABEL = "Closest passage (not cited by the model)"
 
 
+def format_usage(usage) -> Optional[str]:
+    """``"Tokens: 812 in, 64 out · 2.3 s"`` (plus ``" (estimated)"``); None when no model ran."""
+    if usage is None or not hasattr(usage, "input_tokens"):
+        return None
+    line = f"Tokens: {usage.input_tokens} in, {usage.output_tokens} out · {usage.latency_ms / 1000:.1f} s"
+    return line + " (estimated)" if usage.estimated else line
+
+
 def display_answer(text) -> str:
     """Answer text as shown to a person: Markdown bold markers removed ("**x**" -> "x").
 
@@ -412,6 +420,9 @@ def ask(
         console.print("\n[bold]Answer:[/bold]")
         console.print(display_answer(answer.text))
         console.print(f"\n[dim]Answered by: {llm.model_label()}[/dim]")
+        usage_line = format_usage(getattr(answer, "usage", None))
+        if usage_line:
+            console.print(f"[dim]{usage_line}[/dim]")
 
         # Only the sources the answer actually cites; none for a not-found answer.
         if answer.found and answer.cited:
