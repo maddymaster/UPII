@@ -48,6 +48,9 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Fixed
 
+- `upii ask` and the overlay no longer show Markdown bold markers: "**15 December 2025**" is shown
+  as "15 December 2025" (T-065). Citations are kept; the raw answer from HTTP /ask and MCP is
+  unchanged.
 - Overlay (T-064): an answer that cites nothing now shows the top-ranked passage under "Closest
   passage (not cited by the model)", as `upii ask` does since T-061, instead of an answer with no
   passage at all. It is never listed as "Sources used" and never shown for a not-found answer.
