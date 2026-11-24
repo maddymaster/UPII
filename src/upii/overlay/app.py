@@ -392,8 +392,9 @@ class OverlayAPI:
                     "preview": c.text[:50] + "..."
                 })
 
+            from upii.cli import display_answer  # same plain text as upii ask
             return {
-                "answer": answer.text,
+                "answer": display_answer(answer.text),
                 "found": answer.found,
                 "model": model,
                 "answered": answered_line(model),

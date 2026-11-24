@@ -58,6 +58,16 @@ def _source_label(r, paths: dict) -> str:
 UNCITED_LABEL = "Closest passage (not cited by the model)"
 
 
+def display_answer(text) -> str:
+    """Answer text as shown to a person: Markdown bold markers removed ("**x**" -> "x").
+
+    Some models bold key facts. The terminal and the overlay show plain text, so the
+    asterisks would appear literally. Citations such as [1] are kept; the model's raw
+    answer (HTTP /ask, MCP) is not changed.
+    """
+    return (text or "").replace("**", "")
+
+
 def _excerpt(text, width: int = 240) -> str:
     flat = " ".join((text or "").split())
     return flat if len(flat) <= width else flat[: width - 1].rstrip() + "…"
@@ -400,7 +410,7 @@ def ask(
             answer = llm.answer(question, results)
 
         console.print("\n[bold]Answer:[/bold]")
-        console.print(answer.text)
+        console.print(display_answer(answer.text))
         console.print(f"\n[dim]Answered by: {llm.model_label()}[/dim]")
 
         # Only the sources the answer actually cites; none for a not-found answer.
