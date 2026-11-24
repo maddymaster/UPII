@@ -36,6 +36,9 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
   is enough. Without the extra, the command says which package is missing and how to install it.
   On macOS it also explains the Accessibility permission the Cmd+Shift+K hotkey needs. The
   README documents it.
+- `docs/demo_runbook.md` (T-044): a step-by-step demo of `upii ask` and the overlay on real
+  files: ingest, answer with sources, not found, Wi-Fi off, overlay. It runs from a fresh source
+  venv with `upii doctor` passing. No scripted output and no benchmark numbers.
 
 - `upii doctor` now includes an **embedding** check (READY when the model is not yet
   loaded, OK when cached on disk, WARN when the embedding model file is missing — the
