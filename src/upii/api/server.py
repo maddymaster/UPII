@@ -516,11 +516,13 @@ def create_app(allowed_hosts: Optional[List[str]] = None) -> FastAPI:
         _note(request, query=req.question, results=len(sources))
 
         if llm is None:  # no_answer: retrieval only
-            return {"answer": None, "found": bool(sources), "model": None, "sources": sources}
+            return {"answer": None, "found": bool(sources), "model": None, "sources": sources,
+                    "usage": None}
         if not sources:
             from upii.analysis.llm import NOT_FOUND_MESSAGE
 
             return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None, "sources": [],
+                    "usage": None,
                     "detail": f"No passage reached rag_min_similarity {config.rag_min_similarity}; "
                               "no model was called."}
 
@@ -535,7 +537,12 @@ def create_app(allowed_hosts: Optional[List[str]] = None) -> FastAPI:
                            "Check `ollama list`, or send no_answer=true for retrieval only.")
         # Only the sources the answer cites; a not-found answer lists none.
         cited = [sources[n - 1] for n in answer.cited] if answer.found else []
-        return {"answer": answer.text, "found": answer.found, "model": llm.model_info(), "sources": cited}
+        usage = answer.usage.to_dict() if answer.usage is not None else None
+        if usage is not None:
+            # Counts, latency and model name only; the question stays hashed, no text is logged.
+            _note(request, query=req.question, results=len(sources), usage=usage)
+        return {"answer": answer.text, "found": answer.found, "model": llm.model_info(), "sources": cited,
+                "usage": usage}
 
     @app.get("/sources", dependencies=auth)
     def sources(request: Request):

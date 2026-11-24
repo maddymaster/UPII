@@ -181,7 +181,8 @@ class MCPService:
             from upii.analysis.llm import NOT_FOUND_MESSAGE
 
             self._log("upii_ask", question, [])
-            return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None, "citations": []}
+            return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None, "citations": [],
+                    "usage": None}
         # Rebuild lightweight Chunk-likes for the LLM from the consented chunks
         # only — the model never sees a non-exposed source.
         from upii.core.types import Chunk
@@ -208,6 +209,8 @@ class MCPService:
                 {"chunk_id": r["chunk_id"], "doc_path": r["doc_path"], "source": r["source"]}
                 for r in cited
             ],
+            # Tokens and latency of the model call (counts only, no text).
+            "usage": answer.usage.to_dict() if answer.usage is not None else None,
         }
 
     def list_sources(self) -> List[Dict]:

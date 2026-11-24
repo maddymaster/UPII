@@ -16,6 +16,15 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Added
 
+- Tokens and latency per answer (T-005). Every answer that calls the model reports `usage`:
+  `input_tokens`, `output_tokens`, `latency_ms`, `model` and `estimated`. Counts come from the model
+  response (Ollama `prompt_eval_count` / `eval_count`, Gemini `usageMetadata`); when the response has
+  none (mock mode, an error reply) they are estimated at about 4 characters per token and
+  `estimated` is true. `usage` is null when no model was called (no passage reached
+  `rag_min_similarity`, or `no_answer`). HTTP `/ask` (contract change: adds `usage`), MCP `upii_ask`
+  and the overlay return it; `upii ask` prints a `Tokens: N in, M out · S s` line. HTTP `/ask` writes
+  the same counts, latency and model name to the audit log, never question or answer text.
+  `LocalLLM.generate()` still returns plain text.
 - `demo_dataset/` grows from 4 to 42 files (T-060): 38 synthetic documents for one invented company
   (meeting notes, project briefs, policies, finance, support, engineering, personal notes) in
   subfolders, so a demo shows retrieval choosing among many sources. No real people or companies.

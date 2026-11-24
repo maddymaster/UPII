@@ -1,10 +1,11 @@
 import ollama
 import json
 import re
+import time
 from dataclasses import dataclass, field
 import urllib.request
 import urllib.error
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from upii.core.config import config
 from upii.core.types import Chunk
 from upii.core.errors import ModelError
@@ -19,12 +20,39 @@ _NOT_FOUND_VARIANT_RE = re.compile(r"\bNOT[ -]?FOUND\b")  # NOT FOUND, NOT-FOUND
 _CITATION_RE = re.compile(r"\[(\d{1,3})\]")
 
 
+def estimate_tokens(text: Optional[str]) -> int:
+    """Rough token count when the model reports none: about 4 characters per token, at least 1."""
+    return max(1, len(text or "") // 4)
+
+
+@dataclass
+class Usage:
+    """Tokens and latency of one model call. Holds counts only, never prompt or answer text.
+
+    ``input_tokens`` / ``output_tokens`` come from the model response (Ollama
+    ``prompt_eval_count`` / ``eval_count``; Gemini ``usageMetadata.promptTokenCount`` /
+    ``candidatesTokenCount``). When the response carries no count (mock mode, an error
+    reply), :func:`estimate_tokens` fills it in and ``estimated`` is True.
+    ``latency_ms`` is wall-clock time around the call, retries included.
+    """
+    input_tokens: int
+    output_tokens: int
+    latency_ms: int
+    model: str
+    estimated: bool
+
+    def to_dict(self) -> Dict:
+        return {"input_tokens": self.input_tokens, "output_tokens": self.output_tokens,
+                "latency_ms": self.latency_ms, "model": self.model, "estimated": self.estimated}
+
+
 @dataclass
 class Answer:
     """Result of :meth:`LocalLLM.answer`."""
     text: str
     found: bool
     cited: List[int] = field(default_factory=list)  # 1-based indices into the chunks given
+    usage: Optional[Usage] = None  # None when no model was called
 
 
 class LocalLLM:
@@ -44,6 +72,7 @@ class LocalLLM:
         self.gemini_key = getattr(config, 'gemini_api_key', None)
         self.gemini_model = getattr(config, 'gemini_model', 'gemini-1.5-flash')
         self.is_mock = False
+        self._gemini_usage: Optional[Dict] = None  # usageMetadata of the last Gemini reply
 
         self.use_gemini = self.provider == "remote"
         if self.use_gemini and not (self.gemini_key and self.gemini_key not in ("", "YOUR_API_KEY")):
@@ -85,6 +114,7 @@ class LocalLLM:
             req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers, method='POST')
             with urllib.request.urlopen(req) as response:
                 result = json.loads(response.read().decode('utf-8'))
+                self._gemini_usage = result.get('usageMetadata') if isinstance(result, dict) else None
                 # Extract text from Candidate -> Content -> Parts
                 try:
                     return result['candidates'][0]['content']['parts'][0]['text']
@@ -103,24 +133,51 @@ class LocalLLM:
             return f"Connection Failed: {e}"
 
     def generate(self, prompt: str) -> str:
+        return self._generate_with_usage(prompt)[0]
+
+    def _generate_with_usage(self, prompt: str) -> Tuple[str, Usage]:
+        """Model text plus the :class:`Usage` of the call that produced it."""
+        start = time.perf_counter()
+        text, counts = self._generate_raw(prompt)
+        latency_ms = int(round((time.perf_counter() - start) * 1000))
+        n_in, n_out = counts
+        estimated = n_in is None or n_out is None
+        if n_in is None:
+            n_in = estimate_tokens(prompt)
+        if n_out is None:
+            n_out = estimate_tokens(text)
+        # model_info() is read after the call: Ollama can drop to mock mid-call.
+        return text, Usage(input_tokens=int(n_in), output_tokens=int(n_out), latency_ms=latency_ms,
+                           model=self.model_info()["name"], estimated=estimated)
+
+    @staticmethod
+    def _count(value) -> Optional[int]:
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+    def _generate_raw(self, prompt: str) -> Tuple[str, Tuple[Optional[int], Optional[int]]]:
+        """Model text and the (input, output) token counts the response reports, or None each."""
         if self.use_gemini:
-            return self._call_gemini(prompt)
+            self._gemini_usage = None
+            text = self._call_gemini(prompt)
+            meta = self._gemini_usage if isinstance(self._gemini_usage, dict) else {}
+            return text, (self._count(meta.get("promptTokenCount")),
+                          self._count(meta.get("candidatesTokenCount")))
 
         if self.is_mock:
-            return "This is a simulated AI response (Ollama not connected)."
-            
+            return "This is a simulated AI response (Ollama not connected).", (None, None)
+
         try:
             response = ollama.generate(model=self.model, prompt=prompt)
-            return response['response']
         except Exception as e_gpu:
             try:
                 print(f"[WARN] GPU Generation failed ({e_gpu}). Retrying with CPU only...")
                 response = ollama.generate(model=self.model, prompt=prompt, options={'num_gpu': 0})
-                return response['response']
             except Exception:
                 print(f"[WARN] Generation failed. System entering Mock Mode resiliency.")
                 self.is_mock = True
-                return "This is a simulated AI response (Ollama failed)."
+                return "This is a simulated AI response (Ollama failed).", (None, None)
+        return response['response'], (self._count(response.get('prompt_eval_count')),
+                                       self._count(response.get('eval_count')))
 
     def _answer_prompt(self, question: str, chunks: List[Chunk]) -> str:
         context_str = ""
@@ -167,14 +224,16 @@ Answer:"""
         """
         if not chunks:
             return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
-        raw = (self.generate(self._answer_prompt(question, chunks)) or "").strip()
+        text, usage = self._generate_with_usage(self._answer_prompt(question, chunks))
+        raw = (text or "").strip()
+        # The model was called, so even an abstention carries its usage.
         if _NOT_FOUND_RE.search(raw):
-            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
+            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[], usage=usage)
         cited = sorted({int(n) for n in _CITATION_RE.findall(raw) if 1 <= int(n) <= len(chunks)})
         # Uppercase NOT FOUND / NOT-FOUND without citations -> abstain.
         if not cited and _NOT_FOUND_VARIANT_RE.search(raw):
-            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[])
-        return Answer(text=raw, found=True, cited=cited)
+            return Answer(text=NOT_FOUND_MESSAGE, found=False, cited=[], usage=usage)
+        return Answer(text=raw, found=True, cited=cited, usage=usage)
 
     def answer_with_citations(self, question: str, chunks: List[Chunk]) -> str:
         """Generates an answer using the provided chunks as context (raw model text)."""

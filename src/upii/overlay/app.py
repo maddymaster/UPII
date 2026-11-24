@@ -358,7 +358,8 @@ class OverlayAPI:
                                                        min_similarity=config.rag_min_similarity)
             if not ranked_chunks:
                 return {"answer": NOT_FOUND_MESSAGE, "found": False, "model": None,
-                        "answered": None, "sources": [], "closest": None, "ranking": []}
+                        "answered": None, "sources": [], "closest": None, "ranking": [],
+                        "usage": None}
 
             # 2. Generate
             answer = self._llm.answer(text, ranked_chunks)
@@ -400,7 +401,8 @@ class OverlayAPI:
                 "answered": answered_line(model),
                 "sources": sources,
                 "closest": closest,
-                "ranking": ranking_info
+                "ranking": ranking_info,
+                "usage": answer.usage.to_dict() if getattr(answer, "usage", None) is not None else None,
             }
         except Exception as e:
             logger.error(f"Overlay Query Error: {e}")
