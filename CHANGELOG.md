@@ -16,6 +16,19 @@ Versions remain `0.x` until signed installers ship as `v1.0.0`.
 
 ### Added
 
+- `bench/memory/` (T-007): a memory benchmark harness for LoCoMo and LongMemEval. It pins Mem0's
+  memory-benchmarks harness by commit and both datasets by commit and SHA-256 (`HARNESS.lock`,
+  `fetch.py`), and runs the harness's own prompts, judge and metrics on four backends: full history,
+  plain vector search, Mem0 open source (in process, local models, telemetry off) and upii. Local
+  models by default; every report records the model build digests and served context. A failed model
+  call stops the run instead of being scored WRONG, and prompts that would not fit the served context
+  are refused. Paid endpoints run under a spend guard (tokens priced at list prices, running estimate
+  per question, stop at `--max-spend-usd`, default US$15). Every report gives the prompt tokens per
+  answer beside accuracy. `regrade.py` re-grades saved answers with the Mem0 paper's original judge
+  prompt and draws fixed samples of gradings for hand-checking. Run output stays local (not committed) until the G1 benchmark gate. Own
+  venv and requirements; not an upii dependency. Method draft in `bench/memory/METHOD.md`; offline
+  tests in `bench/memory/tests/`. README gains a short "Memory benchmark (draft)" section (no
+  scores).
 - `demo_dataset/` grows from 4 to 42 files (T-060): 38 synthetic documents for one invented company
   (meeting notes, project briefs, policies, finance, support, engineering, personal notes) in
   subfolders, so a demo shows retrieval choosing among many sources. No real people or companies.

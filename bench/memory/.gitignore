@@ -1,0 +1,5 @@
+# fetched by fetch.py (pinned in HARNESS.lock)
+.cache/
+.venv/
+# Run output (REPORT.md, summary.json, raw answers) stays local until the G1 benchmark gate.
+results/
