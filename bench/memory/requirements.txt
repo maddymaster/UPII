@@ -1,0 +1,17 @@
+# bench/memory has its own venv; nothing here is a dependency of upii.
+#   python3.12 -m venv bench/memory/.venv
+#   bench/memory/.venv/bin/pip install -e . -r bench/memory/requirements.txt
+# Versions are the ones the first runs used. The pinned harness asks for:
+aiohttp==3.14.5
+aiolimiter==1.3.0
+anthropic==2.13.0
+openai==3.58.0
+pydantic==2.14.4
+python-dotenv==1.2.4
+requests==2.34.2
+tqdm==4.70.1
+# mem0_oss backend only (Mem0 open source, in process; telemetry is switched off by the backend):
+mem0ai==2.2.1
+qdrant-client==1.20.0
+# tests
+pytest==9.2.0

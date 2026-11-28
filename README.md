@@ -211,6 +211,27 @@ pytest tests/test_chunk_determinism.py tests/test_incremental.py -q   # ingest â
 python scripts/bench/scale_check.py --docs 500 --paras 60              # scale + hash-reproducibility report
 ```
 
+### Memory benchmark (draft)
+
+`bench/memory/` runs long-conversation memory benchmarks (LoCoMo, and LongMemEval-S, which is wired
+up but not yet run) through a pinned copy of Mem0's open-source
+[memory-benchmarks](https://github.com/mem0ai/memory-benchmarks) harness. It compares four memory
+backends: full history, plain vector search, Mem0 open source and upii. The harness and both datasets
+are pinned by commit and SHA-256 (`bench/memory/HARNESS.lock`). By default the answer model and the
+judge model run locally in Ollama, so nothing leaves the machine.
+
+No scores are published yet. The method is a draft under review and the scores are not yet comparable
+to published figures; `bench/memory/METHOD.md` explains why. LoCoMo is licensed CC BY-NC 4.0, so its
+results will appear only in this repository. Every result will report tokens per answer alongside
+accuracy.
+
+```bash
+python3.12 -m venv bench/memory/.venv
+bench/memory/.venv/bin/pip install -e . -r bench/memory/requirements.txt
+bench/memory/.venv/bin/python bench/memory/fetch.py                    # pinned harness + datasets
+bench/memory/.venv/bin/python -m pytest bench/memory/tests -q          # offline tests
+```
+
 ## How UPII compares
 
 | | UPII | Cloud RAG / memory APIs | Typical local RAG |
